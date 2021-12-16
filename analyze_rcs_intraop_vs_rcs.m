@@ -1,28 +1,58 @@
 %% load intraop data
-%dataFile = load('C:\Users\david\Box\Patient In-Clinic Data\RCS02\v01_or_day\NeuroOmega\maria_analysis\RCS02_bilatM1_bilatlfp_rest_postlead.mat');
-dataFile = load('C:\Users\david\Box\Patient In-Clinic Data\RCS03\study_visits\OR_2ndside\analyzed\RCS03_04_Recog_Rlfp_rest_raw_ecog.mat');
-%dataFile = load('C:\Users\david\Box\Patient In-Clinic Data\RCS03\study_visits\OR_2ndside\maria_analysis\RCS03_02_Recog_rest_raw_ecog.mat');
+pathData = 'C:\Users\david\Box\Patient In-Clinic Data\RCS02\v01_or_day\NeuroOmega\analyzed\RCS02_bilatM1_bilatlfp_rest_postlead_raw_ecog.mat';
+%pathData = 'C:\Users\david\Box\Patient In-Clinic Data\RCS03\study_visits\OR_2ndside\analyzed\RCS03_04_Recog_Rlfp_rest_raw_ecog.mat';
+%pathData = 'C:\Users\david\Box\Patient In-Clinic Data\RCS03\study_visits\OR_2ndside\maria_analysis\RCS03_02_Recog_rest_raw_ecog.mat';
+dataFile = load(pathData);
 
 
-%% define work place variables 
-subject = 'RCS02';
-dataCell = {};
-timeCell = {};
-chanCell = {};
-dataMatrix = [];
-timeMatrix = [];
+%% define work place variables
+splitPath = strsplit(pathData,'\');
+subject = splitPath{6}; % only for the defined paths above!
+dataCellIntraop = {};
+timeCellIntraop = {};
+chanCellIntraop = {};
+dataMatrixIntraop = [];
+timeMatrixIntraop = [];
 counter = 1;
 
-run(fullfile(getenv('matlab_devel_dir'),'patient_config_files',subject, 'patient_config_file.m'))
+%run(fullfile(getenv('matlab_devel_dir'),'patient_config_files',subject, 'patient_config_file.m'))
 
-dataCell{1} = dataMatrix;
-timeCell{1} = timeMatrix;
+% setup sampling rates
+fsECOG = dataFile.ecog.Fs(1);
+fsLFP = dataFile.lfp.Fs(1);
+fs = fsECOG;
 
-data.label = chanCell;     % cell-array containing strings, Nchan*1
-data.fsample = fs;    % sampling frequency in Hz, single number
-data.trial = dataCell;     % cell-array containing a data matrix for each
+dataECOG = dataFile.ecog.contact;
+dataLFP = dataFile.lfp.contact;
+
+% ecog
+for jj = 1:length(dataECOG)
+    dataInt = dataECOG(jj).raw_signal;
+    timeVec = [0:length(dataInt)-1]/fs;
+    dataMatrixIntraop = [dataMatrixIntraop; dataInt];
+    timeMatrixIntraop = [timeMatrixIntraop;timeVec];
+    chanCellIntraop{jj} = ['ECOG' sprintf('%d',counter)];
+    counter = counter + 1;
+end
+
+% lfp
+for jj = 1:length(dataLFP)
+    dataInt = dataLFP(jj).raw_signal;
+    timeVec = [0:length(dataInt)-1]/fs;
+    dataMatrixIntraop = [dataMatrixIntraop; dataInt];
+    timeMatrixIntraop = [timeMatrixIntraop;timeVec];
+    chanCellIntraop{counter} = ['LFP' sprintf('%d',counter)];
+    counter = counter + 1;
+end
+
+dataCellIntraop{1} = dataMatrixIntraop;
+timeCellIntraop{1} = timeMatrixIntraop;
+
+dataIntraop.label = chanCellIntraop;     % cell-array containing strings, Nchan*1
+dataIntraop.fsample = fs;    % sampling frequency in Hz, single number
+dataIntraop.trial = dataCellIntraop;     % cell-array containing a data matrix for each
 % trial (1*Ntrial), each data matrix is a Nchan*Nsamples matrix
-data.time = timeCell;       % cell-array containing a time axis for each
+dataIntraop.time = timeCellIntraop;       % cell-array containing a time axis for each
 % trial (1*Ntrial), each time axis is a 1*Nsamples vector
 %data.trialinfo  % this field is optional, but can be used to store
 % trial-specific information, such as condition numbers,
@@ -32,33 +62,45 @@ data.time = timeCell;       % cell-array containing a time axis for each
 % sample of each trial
 %% preprocess
 
-cfg = [];
-cfg.continuous = 'yes';
-dataPreProc = ft_preprocessing(cfg,data);
+cfgIntraop = [];
+cfgIntraop.continuous = 'yes';
+cfgIntraop.reref = 'yes';
+cfgIntraop.refmethod = 'bipolar';
+cfgIntraop.refchannel = 'all';
+cfgIntraop.groupchans = 'yes';
+dataPreProcIntraop = ft_preprocessing(cfgIntraop,dataIntraop);
 %%
-cfg = [];
-cfg.resamplefs = 1000;     %frequency at which the data will be resampled (default = 256 Hz)
-[dataPreProc] = ft_resampledata(cfg, dataPreProc);
+cfgIntraop = [];
+cfgIntraop.resamplefs = 1000;     %frequency at which the data will be resampled (default = 256 Hz)
+[dataPreProcIntraop] = ft_resampledata(cfgIntraop, dataPreProcIntraop);
 %% power spectrum
-cfg1 = [];
-cfg1.overlap = 0.5;
-cfg1.length = 2;
-dataPreProcOverlap = ft_redefinetrial(cfg1,dataPreProc);
+cfg1Intraop = [];
+cfg1Intraop.overlap = 0.5;
+cfg1Intraop.length = 2;
+dataPreProcOverlapIntraop = ft_redefinetrial(cfg1Intraop,dataPreProcIntraop);
 
-cfg2 = [];
-cfg2.output = 'pow';
-cfg2.channel = 'all';
-cfg2.method= 'mtmfft';
-cfg2.taper = 'boxcar';
-cfg2.foi = [0.5:1:300];
-base_fre1 = ft_freqanalysis(cfg2,dataPreProcOverlap);
+cfg2Intraop = [];
+cfg2Intraop.output = 'pow';
+cfg2Intraop.channel = 'all';
+cfg2Intraop.method= 'mtmfft';
+cfg2Intraop.taper = 'boxcar';
+cfg2Intraop.keeptrials='yes';
+cfg2Intraop.foi = [0.5:1:125];
+base_fre1Intraop = ft_freqanalysis(cfg2Intraop,dataPreProcOverlapIntraop);
 
 %% plot power
 figure
-plot(base_fre1.freq,log10(base_fre1.powspctrm(1,:)))
+plot(base_fre1Intraop.freq,log10(base_fre1Intraop.powspctrm(1,:)))
 xlabel('Frequency (Hz)')
 ylabel('log Power')
+title([subject ' Intraoperative Neuroomega PSD'])
 
+% think about normalized power across whole contact? so it's % of power
+% then bin across a given frequency band? 
+% rank sum + FDR correction for comparisons of power ?
+
+%Pallidal Deep-Brain Stimulation Disrupts Pallidal Beta Oscillations and Coherence with Primary Motor Cortex in Parkinson’s Disease
+%Spectral power. PSD was calculated using the Welch periodogram method (MATLAB function pwelch). For PSD calculations, we used a fast Fourier transform of 1024 points (for a frequency resolution of 0.95 Hz)and50%overlapusingaHannwindowtoreduceedgeeffects.Power was normalized as percentage of total power between 4 and 100 Hz excluding 55–65 Hz line noise (Silberstein et al., 2003). Percentage total power of the resulting normalization was averaged across the following frequency bands: theta (4–8Hz),alpha(8–12Hz),lowbeta(13–20Hz), highbeta(20–30Hz),beta(13–30Hz),broadbandgamma(50–200Hz), and high-frequency oscillations (HFO; 200–400 Hz).
 
 % %% spectrogram
 % cfg = [];
@@ -70,7 +112,7 @@ ylabel('log Power')
 % cfg.foi        = 1:2:500;
 % cfg.toi        = 'all';
 % TFRwave = ft_freqanalysis(cfg, dataPreProc);
-% 
+%
 % %%
 % cfg = [];
 % cfg.baseline     = 'no';
