@@ -96,10 +96,33 @@ cfg2RCS.taper = 'boxcar';
 cfg2RCS.foi = [0.5:1:125];
 base_fre1RCS = ft_freqanalysis(cfg2RCS,dataPreProcOverlapRCS);
 
+% get mean power 
+base_fre1RCS.totalPower = sum(base_fre1RCS.powspctrm,2);
+base_fre1RCS.normalizedPow = 100*base_fre1RCS.powspctrm./repmat(base_fre1RCS.totalPower,1,size(base_fre1RCS.powspctrm,2));
+
+% average across bins
+freqEdges = [4 8;8 12; 13 20;20 30;13 30;50 200];
+%theta (4–8Hz),alpha(8–12Hz),lowbeta(13–20Hz), highbeta(20–30Hz),beta(13–30Hz),broadbandgamma(50–200Hz), 
+for index = 1:size(freqEdges,1)
+indsInterest = (base_fre1RCS.freq <= freqEdges(index,2)) & (base_fre1RCS.freq > freqEdges(index,1));
+base_fre1RCS.averagedBins(:,index) = sum(base_fre1RCS.normalizedPow(:,indsInterest),2);
+end
+
 %% plot power
 figure
 plot(base_fre1RCS.freq,log10(base_fre1RCS.powspctrm(1,:)))
 xlabel('Frequency (Hz)')
 ylabel('log Power')
 title([subject ' RCS PSD'])
+
+figure
+plot(base_fre1RCS.freq,log10(base_fre1RCS.normalizedPow(1,:)))
+xlabel('Frequency (Hz)')
+ylabel('Log Percent of Total Power')
+title([subject ' RCS PSD'])
+
+figure
+plot(base_fre1RCS.averagedBins')
+xlabel('Frequency bins')
+ylabel('Percent of Total Power Across Bin RCS')
 

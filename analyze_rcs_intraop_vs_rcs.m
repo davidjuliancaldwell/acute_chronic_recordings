@@ -13,6 +13,8 @@ timeCellIntraop = {};
 chanCellIntraop = {};
 dataMatrixIntraop = [];
 timeMatrixIntraop = [];
+includeLFP = false;
+includeECOG = true;
 counter = 1;
 
 %run(fullfile(getenv('matlab_devel_dir'),'patient_config_files',subject, 'patient_config_file.m'))
@@ -25,24 +27,28 @@ fs = fsECOG;
 dataECOG = dataFile.ecog.contact;
 dataLFP = dataFile.lfp.contact;
 
-% ecog
-for jj = 1:length(dataECOG)
-    dataInt = dataECOG(jj).raw_signal;
-    timeVec = [0:length(dataInt)-1]/fs;
-    dataMatrixIntraop = [dataMatrixIntraop; dataInt];
-    timeMatrixIntraop = [timeMatrixIntraop;timeVec];
-    chanCellIntraop{jj} = ['ECOG' sprintf('%d',counter)];
-    counter = counter + 1;
+if includeECOG
+    % ecog
+    for jj = 1:length(dataECOG)
+        dataInt = dataECOG(jj).raw_signal;
+        timeVec = [0:length(dataInt)-1]/fs;
+        dataMatrixIntraop = [dataMatrixIntraop; dataInt];
+        timeMatrixIntraop = [timeMatrixIntraop;timeVec];
+        chanCellIntraop{jj} = ['ECOG' sprintf('%d',counter)];
+        counter = counter + 1;
+    end
 end
 
-% lfp
-for jj = 1:length(dataLFP)
-    dataInt = dataLFP(jj).raw_signal;
-    timeVec = [0:length(dataInt)-1]/fs;
-    dataMatrixIntraop = [dataMatrixIntraop; dataInt];
-    timeMatrixIntraop = [timeMatrixIntraop;timeVec];
-    chanCellIntraop{counter} = ['LFP' sprintf('%d',counter)];
-    counter = counter + 1;
+if includeLFP
+    % lfp
+    for jj = 1:length(dataLFP)
+        dataInt = dataLFP(jj).raw_signal;
+        timeVec = [0:length(dataInt)-1]/fs;
+        dataMatrixIntraop = [dataMatrixIntraop; dataInt];
+        timeMatrixIntraop = [timeMatrixIntraop;timeVec];
+        chanCellIntraop{counter} = ['LFP' sprintf('%d',counter)];
+        counter = counter + 1;
+    end
 end
 
 dataCellIntraop{1} = dataMatrixIntraop;
@@ -84,9 +90,21 @@ cfg2Intraop.output = 'pow';
 cfg2Intraop.channel = 'all';
 cfg2Intraop.method= 'mtmfft';
 cfg2Intraop.taper = 'boxcar';
-cfg2Intraop.keeptrials='yes';
+cfg2Intraop.keeptrials='no'; % put this to yes if want individual trials returned vs. average
 cfg2Intraop.foi = [0.5:1:125];
 base_fre1Intraop = ft_freqanalysis(cfg2Intraop,dataPreProcOverlapIntraop);
+
+% get mean power
+base_fre1Intraop.totalPower = sum(base_fre1Intraop.powspctrm,2);
+base_fre1Intraop.normalizedPow = 100*base_fre1Intraop.powspctrm./repmat(base_fre1Intraop.totalPower,1,size(base_fre1Intraop.powspctrm,2));
+
+% average across bins
+freqEdges = [4 8;8 12; 13 20;20 30;13 30;50 200];
+%theta (4–8Hz),alpha(8–12Hz),lowbeta(13–20Hz), highbeta(20–30Hz),beta(13–30Hz),broadbandgamma(50–200Hz),
+for index = 1:size(freqEdges,1)
+    indsInterest = (base_fre1Intraop.freq <= freqEdges(index,2)) & (base_fre1Intraop.freq > freqEdges(index,1));
+    base_fre1Intraop.averagedBins(:,index) = sum(base_fre1Intraop.normalizedPow(:,indsInterest),2);
+end
 
 %% plot power
 figure
@@ -95,8 +113,20 @@ xlabel('Frequency (Hz)')
 ylabel('log Power')
 title([subject ' Intraoperative Neuroomega PSD'])
 
+figure
+plot(base_fre1Intraop.freq,log10(base_fre1Intraop.normalizedPow(1,:)))
+xlabel('Frequency (Hz)')
+ylabel('Log Percent of Total Power')
+title([subject ' Intraoperative Neuroomega PSD'])
+
+figure
+plot(base_fre1Intraop.averagedBins')
+xlabel('Frequency bins')
+ylabel('Percent of Total Power Across Bin Intraoperative Neuroomega')
+
+
 % think about normalized power across whole contact? so it's % of power
-% then bin across a given frequency band? 
+% then bin across a given frequency band?
 % rank sum + FDR correction for comparisons of power ?
 
 %Pallidal Deep-Brain Stimulation Disrupts Pallidal Beta Oscillations and Coherence with Primary Motor Cortex in Parkinson’s Disease
