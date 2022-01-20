@@ -1,9 +1,7 @@
-%pathInt = 'C:\Users\david\Box\Patient In-Clinic Data\RCS02\v01_or_day\rcsData\Session1557272264386\DeviceNPC700398H';
-%pathInt = 'C:\Users\david\Box\Patient In-Clinic Data\RCS02\v01_or_day\rcsData\Session1557272264386\DeviceNPC700404H';
-pathInt = 'C:\Users\david\Box\Patient In-Clinic Data\RCS02\v02_postop\montage\Session1557330282531\DeviceNPC700398H';
 
-splitPath = strsplit(pathData,'\');
-subject = splitPath{6}; % only for the defined paths above!
+
+splitPath = strsplit(pathDataRcs,'\');
+subject = splitPath{6}; % only for the defined paths on David's PC!
 
 processFlag = 2;
 shortGaps_systemTick = 0;
@@ -15,7 +13,7 @@ shortGaps_systemTick = 0;
     FFT_timeVariableNames, AdaptiveData, AdaptiveData_onlyTimeVariables, ...
     Adaptive_timeVariableNames, timeDomainSettings, powerSettings, fftSettings, ...
     eventLogTable, metaData, stimSettingsOut, stimMetaData, stimLogSettings,...
-    DetectorSettings, AdaptiveStimSettings, AdaptiveEmbeddedRuns_StimSettings] = ProcessRCS(pathInt, processFlag, shortGaps_systemTick);
+    DetectorSettings, AdaptiveStimSettings, AdaptiveEmbeddedRuns_StimSettings] = ProcessRCS(pathDataRcs, processFlag, shortGaps_systemTick);
 
 dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
 
@@ -23,7 +21,7 @@ dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
 
 %%
 rc = rcsPlotter();
-rc.addFolder(pathInt);
+rc.addFolder(pathDataRcs);
 rc.loadData()
 %%
 chanInt = 4;
@@ -101,7 +99,7 @@ base_fre1RCS.totalPower = sum(base_fre1RCS.powspctrm,2);
 base_fre1RCS.normalizedPow = 100*base_fre1RCS.powspctrm./repmat(base_fre1RCS.totalPower,1,size(base_fre1RCS.powspctrm,2));
 
 % average across bins
-freqEdges = [4 8;8 12; 13 20;20 30;13 30;50 200];
+freqEdges = [4 8;8 12; 13 20;20 30;50 200;13 30];
 %theta (4–8Hz),alpha(8–12Hz),lowbeta(13–20Hz), highbeta(20–30Hz),beta(13–30Hz),broadbandgamma(50–200Hz), 
 for index = 1:size(freqEdges,1)
 indsInterest = (base_fre1RCS.freq <= freqEdges(index,2)) & (base_fre1RCS.freq > freqEdges(index,1));

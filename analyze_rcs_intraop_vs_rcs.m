@@ -1,12 +1,10 @@
 %% load intraop data
-pathData = 'C:\Users\david\Box\Patient In-Clinic Data\RCS02\v01_or_day\NeuroOmega\analyzed\RCS02_bilatM1_bilatlfp_rest_postlead_raw_ecog.mat';
-%pathData = 'C:\Users\david\Box\Patient In-Clinic Data\RCS03\study_visits\OR_2ndside\analyzed\RCS03_04_Recog_Rlfp_rest_raw_ecog.mat';
-%pathData = 'C:\Users\david\Box\Patient In-Clinic Data\RCS03\study_visits\OR_2ndside\maria_analysis\RCS03_02_Recog_rest_raw_ecog.mat';
-dataFile = load(pathData);
+
+dataFile = load(pathDataIntraOp);
 
 
 %% define work place variables
-splitPath = strsplit(pathData,'\');
+splitPath = strsplit(pathDataIntraOp,'\');
 subject = splitPath{6}; % only for the defined paths above!
 dataCellIntraop = {};
 timeCellIntraop = {};
@@ -19,16 +17,12 @@ counter = 1;
 
 %run(fullfile(getenv('matlab_devel_dir'),'patient_config_files',subject, 'patient_config_file.m'))
 
-% setup sampling rates
-fsECOG = dataFile.ecog.Fs(1);
-fsLFP = dataFile.lfp.Fs(1);
-fs = fsECOG;
-
-dataECOG = dataFile.ecog.contact;
-dataLFP = dataFile.lfp.contact;
-
 if includeECOG
     % ecog
+    % setup sampling rates
+    dataECOG = dataFile.ecog.contact;
+    fsECOG = dataFile.ecog.Fs(1);
+    fs = fsECOG;
     for jj = 1:length(dataECOG)
         dataInt = dataECOG(jj).raw_signal;
         timeVec = [0:length(dataInt)-1]/fs;
@@ -41,6 +35,11 @@ end
 
 if includeLFP
     % lfp
+    dataLFP = dataFile.lfp.contact;
+    fsLFP = dataFile.lfp.Fs(1);
+    if ~exist(fs)
+        fs= fsLFP;
+    end
     for jj = 1:length(dataLFP)
         dataInt = dataLFP(jj).raw_signal;
         timeVec = [0:length(dataInt)-1]/fs;
@@ -99,7 +98,7 @@ base_fre1Intraop.totalPower = sum(base_fre1Intraop.powspctrm,2);
 base_fre1Intraop.normalizedPow = 100*base_fre1Intraop.powspctrm./repmat(base_fre1Intraop.totalPower,1,size(base_fre1Intraop.powspctrm,2));
 
 % average across bins
-freqEdges = [4 8;8 12; 13 20;20 30;13 30;50 200];
+freqEdges = [4 8;8 12; 13 20;20 30;50 200;13 30];
 %theta (4–8Hz),alpha(8–12Hz),lowbeta(13–20Hz), highbeta(20–30Hz),beta(13–30Hz),broadbandgamma(50–200Hz),
 for index = 1:size(freqEdges,1)
     indsInterest = (base_fre1Intraop.freq <= freqEdges(index,2)) & (base_fre1Intraop.freq > freqEdges(index,1));
