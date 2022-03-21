@@ -1,5 +1,4 @@
 %% load intraop data
-
 dataFile = load(pathDataIntraOp);
 
 
@@ -76,7 +75,7 @@ cfgIntraop.groupchans = 'yes';
 dataPreProcIntraop = ft_preprocessing(cfgIntraop,dataIntraop);
 %%
 cfgIntraop = [];
-cfgIntraop.resamplefs = 1000;     %frequency at which the data will be resampled (default = 256 Hz)
+cfgIntraop.resamplefs = 250;     %frequency at which the data will be resampled (default = 256 Hz)
 [dataPreProcIntraop] = ft_resampledata(cfgIntraop, dataPreProcIntraop);
 %% power spectrum
 cfg1Intraop = [];

@@ -1,5 +1,7 @@
 subjects_to_analyze
 
+statsCell = {};
+
 for jj = 1:length(subjsToAnalyze)
 
 pathDataIntraOp = intraOpFiles{jj};

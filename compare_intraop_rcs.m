@@ -8,6 +8,8 @@ for index = 1:size(base_fre1RCS.averagedBins,2)
     statsResults.stats(index) = stats;
 end
 
+statsCell{jj} = statsResults;
+
 % plot mean + SEM of frequency spectrum
 fig1 = figure;
 line1 = stdshade(log10(base_fre1RCS.normalizedPow),0.5,'b');
