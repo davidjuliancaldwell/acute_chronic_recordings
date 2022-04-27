@@ -3,14 +3,14 @@ dataFile = load(pathDataIntraOp);
 
 
 %% define work place variables
-splitPath = strsplit(pathDataIntraOp,'\');
+splitPath = strsplit(pathDataIntraOp,'/');
 subject = splitPath{6}; % only for the defined paths above!
 dataCellIntraop = {};
 timeCellIntraop = {};
 chanCellIntraop = {};
 dataMatrixIntraop = [];
 timeMatrixIntraop = [];
-includeLFP = false;
+includeLFP = true;
 includeECOG = true;
 counter = 1;
 
@@ -27,8 +27,13 @@ if includeECOG
         timeVec = [0:length(dataInt)-1]/fs;
         dataMatrixIntraop = [dataMatrixIntraop; dataInt];
         timeMatrixIntraop = [timeMatrixIntraop;timeVec];
-        chanCellIntraop{jj} = ['ECOG' sprintf('%d',counter)];
-        counter = counter + 1;
+        if jj <=4
+            chanCellIntraop{jj} = ['ECOGL' sprintf('%d',counter)];
+            counter = counter + 1;
+        elseif jj >4
+            chanCellIntraop{jj} = ['ECOGR' sprintf('%d',counter)];
+            counter = counter + 1;
+        end
     end
 end
 
@@ -36,7 +41,7 @@ if includeLFP
     % lfp
     dataLFP = dataFile.lfp.contact;
     fsLFP = dataFile.lfp.Fs(1);
-    if ~exist(fs)
+    if ~exist('fs','var')
         fs= fsLFP;
     end
     for jj = 1:length(dataLFP)
@@ -44,8 +49,13 @@ if includeLFP
         timeVec = [0:length(dataInt)-1]/fs;
         dataMatrixIntraop = [dataMatrixIntraop; dataInt];
         timeMatrixIntraop = [timeMatrixIntraop;timeVec];
-        chanCellIntraop{counter} = ['LFP' sprintf('%d',counter)];
-        counter = counter + 1;
+        if jj <=4
+            chanCellIntraop{counter} = ['LFPL' sprintf('%d',counter)];
+            counter = counter + 1;
+        elseif jj >4
+            chanCellIntraop{counter} = ['LFPR' sprintf('%d',counter)];
+            counter = counter + 1;
+        end
     end
 end
 

@@ -1,23 +1,79 @@
 % run this after the data has been processed
 
+% intraop ECoG and DBS channels 
+indicesECOGintra = find(contains(base_fre1Intraop.label,'ECOG'));
+indicesLFPintra = find(contains(base_fre1Intraop.label,'LFP'));
+
+
+% RC+S ECoG and DBS channels 
+base_fre1RCScollapse = {};
+
+base_fre1RCScollapse.averagedBins = cell2mat(base_fre1RCSall.averagedBins');
+base_fre1RCScollapse.label = [base_fre1RCSall.chans{:}];
+base_fre1RCScollapse.normalizedPow = cell2mat(base_fre1RCSall.normalizedPow');
+
+indicesLFPRCS = find(contains(base_fre1RCScollapse.label,{'+8','+9','+10','+11','-8','-9','-10','-11'}));
+indicesECOGRCS = ones(length(base_fre1RCScollapse.label),1);
+indicesECOGRCS(indicesLFPRCS) = 0;
+indicesECOGRCS = find(indicesECOGRCS==1);
+
+
 % rank sum test across channels
 for index = 1:size(base_fre1RCS.averagedBins,2)
-    [p,h,stats] = ranksum(base_fre1RCS.averagedBins(:,index),base_fre1Intraop.averagedBins(:,index));
-    statsResults.p(index)=p;
-    statsResults.h(index)=h;
-    statsResults.stats(index) = stats;
+    [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index),base_fre1Intraop.averagedBins(indicesECOGintra,index));
+    statsResults.pECOG(index)=p;
+    statsResults.hECOG(index)=h;
+    statsResults.statsECOG(index) = stats;
 end
 
-statsCell{jj} = statsResults;
+for index = 1:size(base_fre1RCS.averagedBins,2)
+    [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesLFPRCS,index),base_fre1Intraop.averagedBins(indicesLFPintra,index));
+    statsResults.pLFP(index)=p;
+    statsResults.hLFP(index)=h;
+    statsResults.statsLFP(index) = stats;
+end
+
+statsCell{subjNum} = statsResults;
 
 % plot mean + SEM of frequency spectrum
 fig1 = figure;
-line1 = stdshade(log10(base_fre1RCS.normalizedPow),0.5,'b');
+subplot(2,1,1)
+line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(indicesECOGRCS,:)),0.5,'b');
 hold on
-line2 = stdshade(log10(base_fre1Intraop.normalizedPow),0.5,'r');
+line2 = stdshade(log10(base_fre1Intraop.normalizedPow(indicesECOGintra,:)),0.5,'r');
 xlabel('Frequency (Hz)')
 ylabel('Log Percentage of Total Power')
-title([subj ' Comparison between normalized Clinic RCS and Intraoperative Neuroomega data'])
+title([subj ' Comparison between normalized Clinic RCS and Intraoperative Neuroomega data for ECoG Channels'])
+
+% make shaded regions of different frequency regions
+freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
+ylims = ylim;
+minVal = ylims(1);
+maxVal = ylims(2);
+colormapPatch = brewermap(size(freqEdgesPlot,1),'PuBu');
+for index = 1:size(freqEdgesPlot,1)
+    xVals = [freqEdgesPlot(index,1) freqEdgesPlot(index,2) freqEdgesPlot(index,2) freqEdgesPlot(index,1)];
+    yVals = [minVal minVal maxVal maxVal];
+    patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
+end
+
+%%
+% significance stars
+for index=1:5
+    if statsResults.pECOG(index)<=0.05
+        scatter((freqEdgesPlot(index,2)+freqEdgesPlot(index,1))/2,maxVal-0.25,100,'k*'); %adds a marker
+    end
+end
+
+legend([line1,line2],{'RCS ECoG','Intraoperative Neuroomega ECoG'});
+
+subplot(2,1,2)
+line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(indicesLFPRCS,:)),0.5,'b');
+hold on
+line2 = stdshade(log10(base_fre1Intraop.normalizedPow(indicesLFPintra,:)),0.5,'r');
+xlabel('Frequency (Hz)')
+ylabel('Log Percentage of Total Power')
+title([subj ' Comparison between normalized Clinic RCS and Intraoperative Neuroomega data for LFP Channels'])
 
 % make shaded regions of different frequency regions
 freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -35,9 +91,16 @@ end
 %%
 % significance stars
 for index=1:5
-    if statsResults.p(index)<=0.05
+    if statsResults.pLFP(index)<=0.05
         scatter((freqEdgesPlot(index,2)+freqEdgesPlot(index,1))/2,maxVal-0.25,100,'k*'); %adds a marker
     end
 end
 
-legend([line1,line2],{'RCS','Intraoperative Neuroomega'});
+legend([line1,line2],{'RCS LFP','Intraoperative Neuroomega LFP'});
+
+if saveFigure
+    tempFig = gcf;
+    tempFig.Position = [305 249 1009 768];
+    exportgraphics(tempFig,fullfile(folderFigures,[subj '_compare_ECoG_LFP.png']),'Resolution',600)
+    exportgraphics(tempFig,fullfile(folderFigures,[subj '_compare_ECoG_LFP.eps']))
+end
