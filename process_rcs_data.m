@@ -1,4 +1,4 @@
-plotRCSfuncs = 1;
+plotRCSfuncs = 0;
 interpolateNan = 0;
 divideTrials = 0;
 
