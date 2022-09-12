@@ -76,13 +76,64 @@ dataIntraop.time = timeCellIntraop;       % cell-array containing a time axis fo
 % sample of each trial
 %% preprocess
 
-cfgIntraop = [];
-cfgIntraop.continuous = 'yes';
-cfgIntraop.reref = 'yes';
-cfgIntraop.refmethod = 'bipolar';
-cfgIntraop.refchannel = 'all';
-cfgIntraop.groupchans = 'yes';
-dataPreProcIntraop = ft_preprocessing(cfgIntraop,dataIntraop);
+if bipolarReref
+    cfgIntraop = [];
+    cfgIntraop.continuous = 'yes';
+    cfgIntraop.reref = 'yes';
+    cfgIntraop.refmethod = 'bipolar';
+    cfgIntraop.refchannel = 'all';
+    cfgIntraop.groupchans = 'yes';
+    dataPreProcIntraop = ft_preprocessing(cfgIntraop,dataIntraop);
+elseif bipolarSkipReref & length(dataIntraop.label)==16
+
+    bipolarSkip_montage.labelold  = {
+        'ECOGL1','ECOGL2','ECOGL3','ECOGL4',...
+        'ECOGR5','ECOGR6','ECOGR7','ECOGR8',...
+        'LFPL9','LFPL10','LFPL11','LFPL12',...
+        'LFPR13','LFPR14','LFPR15','LFPR16'
+        };
+
+    bipolarSkip_montage.labelnew  = {
+        'ECOGL2-0','ECOGL3-1',...
+        'ECOGR6-4','ECOGR7-5',...
+        'LFPL10-8','LFPL11-9',...
+        'LFPR14-12','LFPR15-13',
+        };
+    bipolarSkip_montage.tra       = [
+        -1 0 +1  0  0  0  0  0  0  0  0  0  0  0  0  0
+        0 -1  0 +1  0  0  0  0  0  0  0  0  0  0  0  0
+        0  0  0  0 -1  0 +1  0  0  0  0  0  0  0  0  0
+        0  0  0  0  0 -1  0 +1  0  0  0  0  0  0  0  0
+        0  0  0  0  0  0  0  0 -1  0 +1  0  0  0  0  0
+        0  0  0  0  0  0  0  0  0 -1  0 +1  0  0  0  0
+        0  0  0  0  0  0  0  0  0  0  0  0 -1  0 +1  0
+        0  0  0  0  0  0  0  0  0  0  0  0  0 -1  0 +1
+        ];
+    cfgIntraop= [];
+    cfgIntraop.channel = 'all'; % this is the default
+    cfgIntraop.reref = 'no'; % use the cfg.montage option instead
+    cfgIntraop.montage = bipolarSkip_montage;
+    dataPreProcIntraop = ft_preprocessing(cfgIntraop,dataIntraop);
+elseif bipolarSkipReref & length(dataIntraop.label)==8
+
+    bipolarSkip_montage.labelold  = dataIntraop.label
+
+    bipolarSkip_montage.labelnew  = {
+        'ECOG2-0','ECOG3-1',...
+        'LFP10-8','LFP11-9',...
+        };
+    bipolarSkip_montage.tra       = [
+        -1 0 +1  0  0  0  0  0  
+        0 -1  0 +1  0  0  0  0  
+        0  0  0  0 -1  0 +1  0
+        0  0  0  0  0 -1  0 +1 
+        ];
+    cfgIntraop= [];
+    cfgIntraop.channel = 'all'; % this is the default
+    cfgIntraop.reref = 'no'; % use the cfg.montage option instead
+    cfgIntraop.montage = bipolarSkip_montage;
+    dataPreProcIntraop = ft_preprocessing(cfgIntraop,dataIntraop);
+end
 %%
 cfgIntraop = [];
 cfgIntraop.resamplefs = 250;     %frequency at which the data will be resampled (default = 256 Hz)

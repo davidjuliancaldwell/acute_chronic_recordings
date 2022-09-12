@@ -1,5 +1,9 @@
 saveFigure = 1;
 folderFigures = '/Users/davidcaldwell/Library/CloudStorage/OneDrive-UCSF/Research/RCS_project';
+boxEnv = getenv('box_dir');
+oneDriveEnv = getenv('onedrive_dir');
+folderFigures = fullfile(oneDriveEnv,'/Research/RCS_project');
+
 
 subjects_to_analyze_HFO
 
