@@ -27,7 +27,7 @@ for jjj = 1:length(pathDataRcs)
     [combinedDataTable] = createCombinedTable(dataStreams,unifiedDerivedTimes,metaData);
 
     % if we have knowledge from event table use this to trim down data
-    if exist('beginRCS')
+    if ~isempty('beginRCS')
         rcsBeginTime = eventLogTable.HostUnixTime(beginRCS(jjj));
         rcsEndTime = eventLogTable.HostUnixTime(endRCS(jjj));
 
@@ -57,7 +57,7 @@ for jjj = 1:length(pathDataRcs)
         iterations = unique(timeDomainSettings.recNum);
         structCombinedDataTable = {};
         chansStruct = {};
-        interationsVec = 1:length(iterations);
+        iterationsVec = 1:length(iterations);
     else
         iterationsVec = iterationInterestSpecific(jjj);
         structCombinedDataTable = {};
@@ -200,6 +200,7 @@ for jjj = 1:length(pathDataRcs)
         base_fre1RCS.totalPower = sum(base_fre1RCS.powspctrm,2);
         base_fre1RCS.normalizedPow = 100*base_fre1RCS.powspctrm./repmat(base_fre1RCS.totalPower,1,size(base_fre1RCS.powspctrm,2));
 
+        base_fre1RCSall.powspctrm{jjj}{index}=base_fre1RCS.powspctrm;
         base_fre1RCSall.totalPower{jjj}{index} = sum(base_fre1RCS.powspctrm,2);
         base_fre1RCSall.normalizedPow{jjj}{index} = 100*base_fre1RCS.powspctrm./repmat(base_fre1RCS.totalPower,1,size(base_fre1RCS.powspctrm,2));
         base_fre1RCSall.chans{jjj}{index} = dataRCS.label;

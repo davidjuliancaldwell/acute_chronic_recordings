@@ -76,7 +76,9 @@ dataIntraop.time = timeCellIntraop;       % cell-array containing a time axis fo
 % sample of each trial
 %% preprocess
 
-if bipolarReref
+% here we do the rereferencing 
+
+if strcmp(rerefChoice,'bipolarReref')
     cfgIntraop = [];
     cfgIntraop.continuous = 'yes';
     cfgIntraop.reref = 'yes';
@@ -84,7 +86,7 @@ if bipolarReref
     cfgIntraop.refchannel = 'all';
     cfgIntraop.groupchans = 'yes';
     dataPreProcIntraop = ft_preprocessing(cfgIntraop,dataIntraop);
-elseif bipolarSkipReref & length(dataIntraop.label)==16
+elseif strcmp(rerefChoice,'bipolarSkipReref') & length(dataIntraop.label)==16
 
     bipolarSkip_montage.labelold  = {
         'ECOGL1','ECOGL2','ECOGL3','ECOGL4',...
@@ -114,9 +116,9 @@ elseif bipolarSkipReref & length(dataIntraop.label)==16
     cfgIntraop.reref = 'no'; % use the cfg.montage option instead
     cfgIntraop.montage = bipolarSkip_montage;
     dataPreProcIntraop = ft_preprocessing(cfgIntraop,dataIntraop);
-elseif bipolarSkipReref & length(dataIntraop.label)==8
+elseif strcmp(rerefChoice,'bipolarSkipReref') & length(dataIntraop.label)==8
 
-    bipolarSkip_montage.labelold  = dataIntraop.label
+    bipolarSkip_montage.labelold  = dataIntraop.label;
 
     bipolarSkip_montage.labelnew  = {
         'ECOG2-0','ECOG3-1',...

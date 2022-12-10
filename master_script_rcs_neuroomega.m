@@ -31,6 +31,8 @@ for subjNum = 1:length(subjsToAnalyze)
     beginRCS = timeStampStart{subjNum};
     endRCS = timeStampStop{subjNum};
     iterationInterestSpecific = iterationInterest{subjNum};
+    rerefChoice = rerefCell{subjNum};
+    sidesToUse = sidesToUseCell{subjNum};
 
     analyze_rcs_intraop_vs_rcs
     process_rcs_data
