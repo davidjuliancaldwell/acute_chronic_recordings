@@ -1,8 +1,12 @@
-saveFigure = 1;
+saveFigure = 0;
 folderFigures = '/Users/davidcaldwell/Library/CloudStorage/OneDrive-UCSF/Research/RCS_project';
 boxEnv = getenv('box_dir');
 oneDriveEnv = getenv('onedrive_dir');
 folderFigures = fullfile(oneDriveEnv,'/Research/RCS_project');
+dropboxEnv = getenv('dropbox');
+
+load(fullfile(boxEnv,'RCS_500_1000_hz_rest_data/for_David/Highsr_sessions_RCSpatients_R.mat'))
+load(fullfile(boxEnv,'RCS_500_1000_hz_rest_data/for_David/Highsr_sessions_RCSpatients_L.mat'))
 
 
 subjects_to_analyze_HFO
@@ -11,13 +15,23 @@ statsCell = {};
 
 for subjNum = 1:length(subjsToAnalyze)
 
-pathDataIntraOp = intraOpFiles{subjNum};
-pathDataRcs = rcsFiles{subjNum};
-subj = subjsToAnalyze{subjNum};
+    % which re-referencing scheme to use, depends on the RC+S data for each
+    % subject. bipolar reref is sequential re-referencing, whereas "skip"
+    % indicates skipping adjacent channels during the re-referencing, which
+    % appears to be more similar to how many of the RC+S sessions are
+    % recorded.
+    bipolarReref = 0;
+    bipolarSkipReref = 1;
 
-analyze_rcs_intraop_vs_rcs_HFO
-process_rcs_data_HFO
-compare_intraop_rcs_HFO
-close all
+    rerefChoice = 'bipolarSkipReref';
+
+    pathDataIntraOp = intraOpFiles{subjNum};
+    pathDataRcs = rcsFiles{subjNum};
+    subj = subjsToAnalyze{subjNum};
+
+    analyze_rcs_intraop_vs_rcs_HFO
+    process_rcs_data_HFO
+    compare_intraop_rcs_HFO
+    close all
 
 end

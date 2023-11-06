@@ -1,4 +1,4 @@
-saveFigure = 1;
+saveFigure = 0;
 boxEnv = getenv('box_dir');
 oneDriveEnv = getenv('onedrive_dir');
 folderFigures = fullfile(oneDriveEnv,'/Research/RCS_project');

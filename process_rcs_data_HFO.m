@@ -1,4 +1,4 @@
-plotRCSfuncs = 1;
+plotRCSfuncs = 0;
 interpolateNan = 0;
 divideTrials = 0;
 
@@ -117,10 +117,10 @@ for jj = 1:length(iterations)
     cfgRCS = [];
     cfgRCS.continuous = 'yes';
     dataPreProcRCS = ft_preprocessing(cfgRCS,dataRCS);
-    %% ensure RCS data is resampled to 250 Hz, which it usually is
-    if dataRCS.fsample ~= 250
+    %% ensure RCS data is resampled to 1000 Hz
+    if dataRCS.fsample ~= 1000
         cfgRCS = [];
-        cfgRCS.resamplefs = 250;     %frequency at which the data will be resampled (default = 256 Hz)
+        cfgRCS.resamplefs = 1000;     %frequency at which the data will be resampled (default = 256 Hz)
         [dataPreProcRCS] = ft_resampledata(cfgRCS, dataPreProcRCS);
     end
     %% divide trials
@@ -165,7 +165,7 @@ for jj = 1:length(iterations)
     cfg2RCS.channel = 'all';
     cfg2RCS.method= 'mtmfft';
     cfg2RCS.taper = 'boxcar';
-    cfg2RCS.foi = [0.5:1:125];
+    cfg2RCS.foi = [0.5:1:500];
     base_fre1RCS = ft_freqanalysis(cfg2RCS,dataPreProcOverlapRCS);
 
     % get mean power
@@ -178,7 +178,7 @@ for jj = 1:length(iterations)
 
     % average across bins
     %freqEdges = [4 8;8 12; 13 20;20 30;50 200;13 30];
-    freqEdges = [4 8;8 12; 13 20;20 30;50 125];
+    freqEdges = [4 8;8 12; 13 20;20 30;50 125;250 350];
 
     %theta (4–8Hz),alpha(8–12Hz),lowbeta(13–20Hz), highbeta(20–30Hz),beta(13–30Hz),broadbandgamma(50–200Hz),
     for index = 1:size(freqEdges,1)

@@ -1,3 +1,8 @@
+%%'Coupling between Beta and High-Frequency Activity in the
+%Human Subthalamic Nucleus May Be a Pathophysiological
+%Mechanism in Parkinson's Disease'
+
+
 %% load intraop data
 dataFile = load(pathDataIntraOp);
 
@@ -76,16 +81,70 @@ dataIntraop.time = timeCellIntraop;       % cell-array containing a time axis fo
 % sample of each trial
 %% preprocess
 
-cfgIntraop = [];
-cfgIntraop.continuous = 'yes';
-cfgIntraop.reref = 'yes';
-cfgIntraop.refmethod = 'bipolar';
-cfgIntraop.refchannel = 'all';
-cfgIntraop.groupchans = 'yes';
-dataPreProcIntraop = ft_preprocessing(cfgIntraop,dataIntraop);
+% here we do the rereferencing 
+
+if strcmp(rerefChoice,'bipolarReref')
+    cfgIntraop = [];
+    cfgIntraop.continuous = 'yes';
+    cfgIntraop.reref = 'yes';
+    cfgIntraop.refmethod = 'bipolar';
+    cfgIntraop.refchannel = 'all';
+    cfgIntraop.groupchans = 'yes';
+    dataPreProcIntraop = ft_preprocessing(cfgIntraop,dataIntraop);
+elseif strcmp(rerefChoice,'bipolarSkipReref') & length(dataIntraop.label)==16
+
+    bipolarSkip_montage.labelold  = {
+        'ECOGL1','ECOGL2','ECOGL3','ECOGL4',...
+        'ECOGR5','ECOGR6','ECOGR7','ECOGR8',...
+        'LFPL9','LFPL10','LFPL11','LFPL12',...
+        'LFPR13','LFPR14','LFPR15','LFPR16'
+        };
+
+    bipolarSkip_montage.labelnew  = {
+        'ECOGL2-0','ECOGL3-1',...
+        'ECOGR6-4','ECOGR7-5',...
+        'LFPL10-8','LFPL11-9',...
+        'LFPR14-12','LFPR15-13',
+        };
+    bipolarSkip_montage.tra       = [
+        -1 0 +1  0  0  0  0  0  0  0  0  0  0  0  0  0
+        0 -1  0 +1  0  0  0  0  0  0  0  0  0  0  0  0
+        0  0  0  0 -1  0 +1  0  0  0  0  0  0  0  0  0
+        0  0  0  0  0 -1  0 +1  0  0  0  0  0  0  0  0
+        0  0  0  0  0  0  0  0 -1  0 +1  0  0  0  0  0
+        0  0  0  0  0  0  0  0  0 -1  0 +1  0  0  0  0
+        0  0  0  0  0  0  0  0  0  0  0  0 -1  0 +1  0
+        0  0  0  0  0  0  0  0  0  0  0  0  0 -1  0 +1
+        ];
+    cfgIntraop= [];
+    cfgIntraop.channel = 'all'; % this is the default
+    cfgIntraop.reref = 'no'; % use the cfg.montage option instead
+    cfgIntraop.montage = bipolarSkip_montage;
+    dataPreProcIntraop = ft_preprocessing(cfgIntraop,dataIntraop);
+elseif strcmp(rerefChoice,'bipolarSkipReref') & length(dataIntraop.label)==8
+
+    bipolarSkip_montage.labelold  = dataIntraop.label;
+
+    bipolarSkip_montage.labelnew  = {
+        'ECOG2-0','ECOG3-1',...
+        'LFP10-8','LFP11-9',...
+        };
+    bipolarSkip_montage.tra       = [
+        -1 0 +1  0  0  0  0  0  
+        0 -1  0 +1  0  0  0  0  
+        0  0  0  0 -1  0 +1  0
+        0  0  0  0  0 -1  0 +1 
+        ];
+    cfgIntraop= [];
+    cfgIntraop.channel = 'all'; % this is the default
+    cfgIntraop.reref = 'no'; % use the cfg.montage option instead
+    cfgIntraop.montage = bipolarSkip_montage;
+    dataPreProcIntraop = ft_preprocessing(cfgIntraop,dataIntraop);
+end
+
 %%
 cfgIntraop = [];
-cfgIntraop.resamplefs = 250;     %frequency at which the data will be resampled (default = 256 Hz)
+cfgIntraop.resamplefs = 1000;     %frequency at which the data will be resampled (default = 256 Hz)
 [dataPreProcIntraop] = ft_resampledata(cfgIntraop, dataPreProcIntraop);
 %% power spectrum
 cfg1Intraop = [];
@@ -99,7 +158,7 @@ cfg2Intraop.channel = 'all';
 cfg2Intraop.method= 'mtmfft';
 cfg2Intraop.taper = 'boxcar';
 cfg2Intraop.keeptrials='no'; % put this to yes if want individual trials returned vs. average
-cfg2Intraop.foi = [0.5:1:125];
+cfg2Intraop.foi = [0.5:1:500];
 base_fre1Intraop = ft_freqanalysis(cfg2Intraop,dataPreProcOverlapIntraop);
 
 % get mean power
@@ -108,7 +167,7 @@ base_fre1Intraop.normalizedPow = 100*base_fre1Intraop.powspctrm./repmat(base_fre
 
 % average across bins
 %freqEdges = [4 8;8 12; 13 20;20 30;50 200;13 30];
-freqEdges = [4 8;8 12; 13 20;20 30;50 125];
+freqEdges = [4 8;8 12; 13 20;20 30;50 125;250 350];
 %theta (4–8Hz),alpha(8–12Hz),lowbeta(13–20Hz), highbeta(20–30Hz),beta(13–30Hz),broadbandgamma(50–200Hz),
 for index = 1:size(freqEdges,1)
     indsInterest = (base_fre1Intraop.freq <= freqEdges(index,2)) & (base_fre1Intraop.freq > freqEdges(index,1));
@@ -117,21 +176,47 @@ end
 
 %% plot power
 figure
-plot(base_fre1Intraop.freq,log10(base_fre1Intraop.powspctrm(1,:)))
+plot(base_fre1Intraop.freq,log10(base_fre1Intraop.powspctrm(7,:)))
 xlabel('Frequency (Hz)')
 ylabel('log Power')
 title([subject ' Intraoperative Neuroomega PSD'])
 
 figure
-plot(base_fre1Intraop.freq,log10(base_fre1Intraop.normalizedPow(1,:)))
+plot(base_fre1Intraop.freq,log10(base_fre1Intraop.normalizedPow(7,:)))
 xlabel('Frequency (Hz)')
 ylabel('Log Percent of Total Power')
 title([subject ' Intraoperative Neuroomega PSD'])
-
+%%
 figure
 plot(base_fre1Intraop.averagedBins')
 xlabel('Frequency bins')
 ylabel('Percent of Total Power Across Bin Intraoperative Neuroomega')
+
+%% working on phase amplitude coupling 
+
+cfgCrossFreq =[];
+cfgCrossFreq.method = 'mi';
+cfgCrossFreq.keeptrials = 'yes';
+cfgCrossFreq.freqlow = [12 30];
+cfgCrossFreq.freqhigh = [250 350];
+
+%crossfreq = ft_crossfrequencyanalysis(cfgCrossFreq,base_fre1Intraop);
+
+% Use as
+%   crossfreq = ft_crossfrequencyanalysis(cfg, freqlo, freqhi)
+% where freq is frequency decomposed data structure as obtained from FT_FREQANALYSIS
+% and cfg is a configuration structure that should contain
+%
+%   cfg.freqlow     scalar or vector, selection of frequencies for the low frequency data
+%   cfg.freqhigh    scalar or vector, selection of frequencies for the high frequency data
+%   cfg.chanlow     selection of channels for the low frequency, see FT_CHANNELSELECTION
+%   cfg.chanhigh    selection of channels for the high frequency, see FT_CHANNELSELECTION
+%   cfg.method      'plv' - phase locking value
+%                   'mvl' - mean vector length
+%                   'mi'  - modulaiton index
+%   cfg.keeptrials  string, can be 'yes' or 'no'
+
+
 
 
 % think about normalized power across whole contact? so it's % of power

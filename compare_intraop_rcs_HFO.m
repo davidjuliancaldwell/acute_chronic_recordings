@@ -46,7 +46,9 @@ ylabel('Log Percentage of Total Power')
 title([subj ' Comparison between normalized RCS and Intraoperative NeuroOmega data for ECoG Channels'])
 
 % make shaded regions of different frequency regions
-freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
+%freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
+freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125;250 350];
+
 ylims = ylim;
 minVal = ylims(1);
 maxVal = ylims(2);
@@ -76,7 +78,7 @@ ylabel('Log Percentage of Total Power')
 title([subj ' Comparison between normalized RCS and Intraoperative NeuroOmega data for LFP signals from DBS Channels'])
 
 % make shaded regions of different frequency regions
-freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
+freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125;250 350];
 ylims = ylim;
 minVal = ylims(1);
 maxVal = ylims(2);
@@ -101,6 +103,6 @@ legend([line1,line2],{'RCS LFP','Intraoperative NeuroOmega LFP'});
 if saveFigure
     tempFig = gcf;
     tempFig.Position = [305 249 1009 768];
-    exportgraphics(tempFig,fullfile(folderFigures,[subj '_compare_ECoG_LFP.png']),'Resolution',600)
-    exportgraphics(tempFig,fullfile(folderFigures,[subj '_compare_ECoG_LFP.eps']))
+    exportgraphics(tempFig,fullfile(folderFigures,[subj '_compare_ECoG_LFP_HFO.png']),'Resolution',600)
+    exportgraphics(tempFig,fullfile(folderFigures,[subj '_compare_ECoG_LFP_HFO.eps']))
 end
