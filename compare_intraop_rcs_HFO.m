@@ -12,10 +12,10 @@ base_fre1RCScollapse.averagedBins = cell2mat(base_fre1RCSall.averagedBins');
 base_fre1RCScollapse.label = [base_fre1RCSall.chans{:}];
 base_fre1RCScollapse.normalizedPow = cell2mat(base_fre1RCSall.normalizedPow');
 
-indicesLFPRCS = find(contains(base_fre1RCScollapse.label,{'+8','+9','+10','+11','-8','-9','-10','-11'}));
-indicesECOGRCS = ones(length(base_fre1RCScollapse.label),1);
-indicesECOGRCS(indicesLFPRCS) = 0;
-indicesECOGRCS = find(indicesECOGRCS==1);
+indicesECOGRCS = find(contains(base_fre1RCScollapse.label,{'+8','+9','+10','+11','-8','-9','-10','-11'}));
+indicesLFPRCS = ones(length(base_fre1RCScollapse.label),1);
+indicesLFPRCS(indicesECOGRCS) = 0;
+indicesLFPRCS = find(indicesLFPRCS==1);
 
 
 % rank sum test across channels
@@ -122,7 +122,7 @@ subplot(1,2,1)
 line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(1,:)),0.5,'b');
 hold on
 line2 = stdshade(log10(base_fre1Intraop.normalizedPow(7,:)),0.5,'r');
-title([subj ' Intraop vs. RC+S LFP ' base_fre1Intraop.label{7}])
+title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{7}])
 
 % make shaded regions of different frequency regions
 % freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -137,13 +137,15 @@ title([subj ' Intraop vs. RC+S LFP ' base_fre1Intraop.label{7}])
 % end
 xlabel('Frequency (Hz)')
 ylabel('Log Percentage of Total Power')
+    set(gca,'fontsize',16)
+
 
 subplot(1,2,2)
 line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(2,:)),0.5,'b');
 hold on
 line2 = stdshade(log10(base_fre1Intraop.normalizedPow(8,:)),0.5,'r');
 
-title([subj ' Intraop vs. RC+S LFP ' base_fre1Intraop.label{8}])
+title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{8}])
 
 % make shaded regions of different frequency regions
 % freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -158,3 +160,13 @@ title([subj ' Intraop vs. RC+S LFP ' base_fre1Intraop.label{8}])
 % end
 
 legend([line1,line2],{'RC+S LFP','Intraoperative NeuroOmega LFP'});
+    set(gca,'fontsize',16)
+
+%%
+if saveFigure
+    tempFig = gcf;
+    tempFig.Position = [300 300 1800 768];
+    set(gca,'fontsize',16)
+    exportgraphics(tempFig,fullfile(folderFigures,[subj 'high_SR_LFP_' splitPath{10} '_' splitPath{11} '.png']),'Resolution',600)
+    exportgraphics(tempFig,fullfile(folderFigures,[subj 'high_SR_LFP' splitPath{10} '_' splitPath{11} '.eps']))
+end

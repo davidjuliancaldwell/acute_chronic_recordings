@@ -1,7 +1,7 @@
 subjsToAnalyze = {'RCS2','RCS3','RCS4','RCS5','RCS8','RCS9'};
 %subjsToAnalyze = {'RCS8','RCS9'};
 %subjsToAnalyze = {'RCS5'};
-subjsToanalyze = {'RCS6'}; % try RCS6 for HFO
+subjsToAnalyze = {'RCS6'}; % try RCS6 for HFO
 
 %subjsToAnalyze = {'RCS6','RCS7','RCS8','RCS9'};
 % subj 6, no working RCS data that I can find, subj 7, one weird data file 

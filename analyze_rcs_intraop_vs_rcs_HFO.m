@@ -20,27 +20,6 @@ counter = 1;
 
 %run(fullfile(getenv('matlab_devel_dir'),'patient_config_files',subject, 'patient_config_file.m'))
 
-if includeECOG
-    % ecog
-    % setup sampling rates
-    dataECOG = dataFile.ecog.contact;
-    fsECOG = dataFile.ecog.Fs(1);
-    fs = fsECOG;
-    for jj = 1:length(dataECOG)
-        dataInt = dataECOG(jj).raw_signal;
-        timeVec = [0:length(dataInt)-1]/fs;
-        dataMatrixIntraop = [dataMatrixIntraop; dataInt];
-        timeMatrixIntraop = [timeMatrixIntraop;timeVec];
-        if jj <=4
-            chanCellIntraop{jj} = ['ECOGL' sprintf('%d',counter)];
-            counter = counter + 1;
-        elseif jj >4
-            chanCellIntraop{jj} = ['ECOGR' sprintf('%d',counter)];
-            counter = counter + 1;
-        end
-    end
-end
-
 if includeLFP
     % lfp
     dataLFP = dataFile.lfp.contact;
@@ -54,10 +33,31 @@ if includeLFP
         dataMatrixIntraop = [dataMatrixIntraop; dataInt];
         timeMatrixIntraop = [timeMatrixIntraop;timeVec];
         if jj <=4
-            chanCellIntraop{counter} = ['LFPL' sprintf('%d',counter)];
+            chanCellIntraop{jj} = ['LFPL' sprintf('%d',counter)];
             counter = counter + 1;
         elseif jj >4
-            chanCellIntraop{counter} = ['LFPR' sprintf('%d',counter)];
+            chanCellIntraop{jj} = ['LFPR' sprintf('%d',counter)];
+            counter = counter + 1;
+        end
+    end
+end
+
+if includeECOG
+    % ecog
+    % setup sampling rates
+    dataECOG = dataFile.ecog.contact;
+    fsECOG = dataFile.ecog.Fs(1);
+    fs = fsECOG;
+    for jj = 1:length(dataECOG)
+        dataInt = dataECOG(jj).raw_signal;
+        timeVec = [0:length(dataInt)-1]/fs;
+        dataMatrixIntraop = [dataMatrixIntraop; dataInt];
+        timeMatrixIntraop = [timeMatrixIntraop;timeVec];
+        if jj <=4
+            chanCellIntraop{counter} = ['ECOGL' sprintf('%d',counter)];
+            counter = counter + 1;
+        elseif jj >4
+            chanCellIntraop{counter} = ['ECOGR' sprintf('%d',counter)];
             counter = counter + 1;
         end
     end
@@ -93,17 +93,17 @@ if strcmp(rerefChoice,'bipolarReref')
 elseif strcmp(rerefChoice,'bipolarSkipReref') & length(dataIntraop.label)==16
 
     bipolarSkip_montage.labelold  = {
-        'ECOGL1','ECOGL2','ECOGL3','ECOGL4',...
-        'ECOGR5','ECOGR6','ECOGR7','ECOGR8',...
-        'LFPL9','LFPL10','LFPL11','LFPL12',...
-        'LFPR13','LFPR14','LFPR15','LFPR16'
+        'LFPL1','LFPL2','LFPL3','LFPL4',...
+        'LFPR5','LFPR6','LFPR7','LFPR8',...
+        'ECOGL9','ECOGL10','ECOGL11','ECOGL12',...
+        'ECOGR13','ECOGR14','ECOGR15','ECOGR16'
         };
 
     bipolarSkip_montage.labelnew  = {
-        'ECOGL2-0','ECOGL3-1',...
-        'ECOGR6-4','ECOGR7-5',...
-        'LFPL10-8','LFPL11-9',...
-        'LFPR14-12','LFPR15-13',
+        'LFPL2-0','LFPL3-1',...
+        'LFPR6-4','LFPR7-5',...
+        'ECOGL10-8','ECOGL11-9',...
+        'ECOGR14-12','ECOGR15-13',
         };
     bipolarSkip_montage.tra       = [
         -1 0 +1  0  0  0  0  0  0  0  0  0  0  0  0  0
@@ -125,8 +125,8 @@ elseif strcmp(rerefChoice,'bipolarSkipReref') & length(dataIntraop.label)==8
     bipolarSkip_montage.labelold  = dataIntraop.label;
 
     bipolarSkip_montage.labelnew  = {
-        'ECOG2-0','ECOG3-1',...
-        'LFP10-8','LFP11-9',...
+        'LFP2-0','LFP3-1',...
+        'ECOG10-8','ECOG11-9',...
         };
     bipolarSkip_montage.tra       = [
         -1 0 +1  0  0  0  0  0  

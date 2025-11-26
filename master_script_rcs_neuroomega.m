@@ -1,6 +1,6 @@
 setup_rcs
 
-saveFigure = 0;
+saveFigure = 1;
 boxEnv = getenv('box_dir');
 oneDriveEnv = getenv('onedrive_dir');
 folderFigures = fullfile(oneDriveEnv,'/Research/RCS_project');
@@ -39,6 +39,6 @@ for subjNum = 1:length(subjsToAnalyze)
     analyze_rcs_intraop_vs_rcs
     process_rcs_data
     compare_intraop_rcs
-    close all
+   % close all
 
 end

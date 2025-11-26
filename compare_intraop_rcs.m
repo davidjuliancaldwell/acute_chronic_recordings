@@ -38,10 +38,10 @@ if length(base_fre1RCSall.averagedBins) > 1
     end
 end
 
-indicesLFPRCS = find(contains(base_fre1RCScollapse.label,{'+8','+9','+10','+11','-8','-9','-10','-11'}));
-indicesECOGRCS = ones(length(base_fre1RCScollapse.label),1);
-indicesECOGRCS(indicesLFPRCS) = 0;
-indicesECOGRCS = find(indicesECOGRCS==1);
+indicesECOGRCS = find(contains(base_fre1RCScollapse.label,{'+8','+9','+10','+11','-8','-9','-10','-11'}));
+indicesLFPRCS = ones(length(base_fre1RCScollapse.label),1);
+indicesLFPRCS(indicesECOGRCS) = 0;
+indicesLFPRCS = find(indicesLFPRCS==1);
 
 if signedRankTest
     % rank sum test across channels
@@ -110,6 +110,7 @@ for index=1:5
 end
 
 legend([line1,line2],{'RC+S ECoG','Intraoperative NeuroOmega ECoG'});
+set(gca,'fontsize',16)
 
 subplot(2,1,2)
 line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(indicesLFPRCS,:)),0.5,'b');
@@ -141,6 +142,8 @@ for index=1:5
 end
 
 legend([line1,line2],{'RC+S LFP','Intraoperative NeuroOmega LFP'});
+set(gca,'fontsize',16)
+
 %%
 if saveFigure
     tempFig = gcf;
@@ -171,6 +174,7 @@ if length(base_fre1Intraop.label) ==4
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+    set(gca,'fontsize',16)
 
     subplot(2,2,2)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(2,:)),0.5,'b');
@@ -189,6 +193,7 @@ if length(base_fre1Intraop.label) ==4
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(2,2,3)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(3,:)),0.5,'b');
@@ -207,6 +212,7 @@ if length(base_fre1Intraop.label) ==4
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(2,2,4)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(4,:)),0.5,'b');
@@ -229,6 +235,7 @@ if length(base_fre1Intraop.label) ==4
     end
 
     legend([line1,line2],{'RC+S LFP','Intraoperative NeuroOmega LFP'});
+set(gca,'fontsize',16)
 
 elseif length(base_fre1Intraop.label) ==8
     fig3 = figure;
@@ -251,6 +258,7 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(4,2,2)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(2,:)),0.5,'b');
@@ -269,6 +277,7 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(4,2,3)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(3,:)),0.5,'b');
@@ -287,6 +296,7 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(4,2,4)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(4,:)),0.5,'b');
@@ -305,6 +315,7 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(4,2,5)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(5,:)),0.5,'b');
@@ -323,6 +334,7 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(4,2,6)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(6,:)),0.5,'b');
@@ -341,6 +353,7 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(4,2,7)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(7,:)),0.5,'b');
@@ -359,6 +372,7 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(4,2,8)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(8,:)),0.5,'b');
@@ -379,6 +393,7 @@ elseif length(base_fre1Intraop.label) ==8
     end
 
     legend([line1,line2],{'RC+S LFP','Intraoperative NeuroOmega LFP'});
+set(gca,'fontsize',16)
 
 
 end
@@ -387,7 +402,7 @@ end
 saveFigure = 1;
 if saveFigure
     tempFig = gcf;
-    tempFig.Position = [305 249 1009 768];
+    tempFig.Position = [300 300 1800 768];
     exportgraphics(tempFig,fullfile(folderFigures,[subj 'indChans_compare_ECoG_LFP_' splitPath{10} '_' splitPath{11} '.png']),'Resolution',600)
     exportgraphics(tempFig,fullfile(folderFigures,[subj 'indChans_compare_ECoG_LFP_' splitPath{10} '_' splitPath{11} '.eps']))
 end
@@ -414,6 +429,7 @@ if length(base_fre1Intraop.label) ==4
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+    set(gca,'fontsize',16)
 
     subplot(2,2,2)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(2,:)),0.5,'b');
@@ -432,6 +448,7 @@ if length(base_fre1Intraop.label) ==4
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+    set(gca,'fontsize',16)
 
     subplot(2,2,3)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(3,:)),0.5,'b');
@@ -450,6 +467,7 @@ if length(base_fre1Intraop.label) ==4
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(2,2,4)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(4,:)),0.5,'b');
@@ -472,6 +490,7 @@ if length(base_fre1Intraop.label) ==4
     end
 
     legend([line1,line2],{'RC+S LFP','Intraoperative NeuroOmega LFP'});
+set(gca,'fontsize',16)
 
 elseif length(base_fre1Intraop.label) ==8
     fig3 = figure;
@@ -494,6 +513,7 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(4,2,2)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(2,:)),0.5,'b');
@@ -512,6 +532,7 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(4,2,3)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(3,:)),0.5,'b');
@@ -530,6 +551,7 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(4,2,4)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(4,:)),0.5,'b');
@@ -548,6 +570,7 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(4,2,5)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(5,:)),0.5,'b');
@@ -566,6 +589,7 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(4,2,6)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(6,:)),0.5,'b');
@@ -584,6 +608,7 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(4,2,7)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(7,:)),0.5,'b');
@@ -602,6 +627,7 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
+set(gca,'fontsize',16)
 
     subplot(4,2,8)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(8,:)),0.5,'b');
@@ -622,6 +648,7 @@ elseif length(base_fre1Intraop.label) ==8
     end
 
     legend([line1,line2],{'RC+S LFP','Intraoperative NeuroOmega LFP'});
+set(gca,'fontsize',16)
 
 
 end
@@ -630,7 +657,7 @@ end
 saveFigure = 1;
 if saveFigure
     tempFig = gcf;
-    tempFig.Position = [305 249 1009 768];
+    tempFig.Position = [300 300 1800 768];
     exportgraphics(tempFig,fullfile(folderFigures,[subj 'indChansNotNormalized_compare_ECoG_LFP_' splitPath{10} '_' splitPath{11} '.png']),'Resolution',600)
     exportgraphics(tempFig,fullfile(folderFigures,[subj 'indChansNotNormalized_compare_ECoG_LFP_' splitPath{10} '_' splitPath{11} '.eps']))
 end
