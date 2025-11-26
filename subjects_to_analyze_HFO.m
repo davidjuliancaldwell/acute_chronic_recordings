@@ -7,21 +7,22 @@ subjsToanalyze = {'RCS6'}; % try RCS6 for HFO
 % subj 6, no working RCS data that I can find, subj 7, one weird data file 
 
 intraOpFiles = {
-    '/Users/davidcaldwell/Box/Patient In-Clinic Data/RCS06/intraop/analyzed/RCS06_06_bi_ecog_lfp_rest_postlead_raw_ecog.mat',
-    '/Users/davidcaldwell/Box/Patient In-Clinic Data/RCS02/v01_or_day/NeuroOmega/analyzed/RCS02_bilatM1_bilatlfp_rest_postlead_raw_ecog.mat',
-    '/Users/davidcaldwell/Box/Patient In-Clinic Data/RCS03/study_visits/OR_2ndside/analyzed/RCS03_04_Recog_Rlfp_rest_raw_ecog.mat',
-    '/Users/davidcaldwell/Box/Patient In-Clinic Data/RCS04/v01_or_day/analyzed/RCS04_10_M1bi_lfpbi_rest_raw_ecog.mat',
-    '/Users/davidcaldwell/Box/Patient In-Clinic Data/RCS05/Intraop/analyzed/RCS05_bi_06_LRecogLRlfp_rest_raw_ecog.mat',
-    %'/Users/davidcaldwell/Box/Patient In-Clinic Data/RCS07/Intraop/analyzed/RCS07_05_biEcog_bilfp_rest_raw_ecog.mat',
-   '/Users/davidcaldwell/Box/Patient In-Clinic Data/RCS08/analyzed/RCS08_biecog_bilfp_rest_raw_ecog.mat',
-    '/Users/davidcaldwell/Box/Patient In-Clinic Data/RCS09/Intraop/Data/analyzed/RCS09_07_biecogbilfp_rest_raw_ecog.mat';
+    fullfile(boxEnv,'Patient In-Clinic Data/RCS06/intraop/analyzed/RCS06_06_bi_ecog_lfp_rest_postlead_raw_ecog.mat'),
+    fullfile(boxEnv,'Patient In-Clinic Data/RCS02/v01_or_day/NeuroOmega/analyzed/RCS02_bilatM1_bilatlfp_rest_postlead_raw_ecog.mat'),
+    fullfile(boxEnv,'Patient In-Clinic Data/RCS03/study_visits/OR_2ndside/analyzed/RCS03_04_Recog_Rlfp_rest_raw_ecog.mat'),
+    fullfile(boxEnv,'Patient In-Clinic Data/RCS04/v01_or_day/analyzed/RCS04_10_M1bi_lfpbi_rest_raw_ecog.mat'),
+    fullfile(boxEnv,'Patient In-Clinic Data/RCS05/Intraop/analyzed/RCS05_bi_06_LRecogLRlfp_rest_raw_ecog.mat'),
+    %fullfile(boxEnv,'Patient In-Clinic Data/RCS07/Intraop/analyzed/RCS07_05_biEcog_bilfp_rest_raw_ecog.mat'),
+   fullfile(boxEnv,'Patient In-Clinic Data/RCS08/analyzed/RCS08_biecog_bilfp_rest_raw_ecog.mat'),
+    fullfile(boxEnv,'Patient In-Clinic Data/RCS09/Intraop/Data/analyzed/RCS09_07_biecogbilfp_rest_raw_ecog.mat');
 };
 rcsFiles = {
-    fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un_Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06R/Session1594746066604/DeviceNPC700425H')
-    fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un_Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06R/Session1595962457358/DeviceNPC700425H')
-    fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un_Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06R/Session1595963557268/DeviceNPC700425H')
-    fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un_Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06L/Session1594746065977/DeviceNPC700424H')
-    %fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un_Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06L/Session1595962445869/DeviceNPC700424H')
+    fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un-Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06R/Session1594746066604/DeviceNPC700425H'),
+    fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un-Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06R/Session1595962457358/DeviceNPC700425H'),
+    fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un-Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06R/Session1595963557268/DeviceNPC700425H'),
+    fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un-Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06L/Session1594746065977/DeviceNPC700424H'),
+    %fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un_Synced
+    %Data/SummitData/SummitContinuousBilateralStreaming/RCS06L/Session1595962445869/DeviceNPC700424H')m
     %fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un_Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06L/Session1595963567828/DeviceNPC700424H')
     };
 

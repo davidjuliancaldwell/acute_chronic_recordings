@@ -1,3 +1,5 @@
+setup_rcs
+
 saveFigure = 0;
 boxEnv = getenv('box_dir');
 oneDriveEnv = getenv('onedrive_dir');

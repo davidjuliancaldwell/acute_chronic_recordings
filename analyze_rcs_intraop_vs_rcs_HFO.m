@@ -6,7 +6,6 @@
 %% load intraop data
 dataFile = load(pathDataIntraOp);
 
-
 %% define work place variables
 splitPath = strsplit(pathDataIntraOp,'/');
 subject = splitPath{6}; % only for the defined paths above!
