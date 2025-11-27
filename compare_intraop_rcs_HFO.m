@@ -137,7 +137,7 @@ title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{7}])
 % end
 xlabel('Frequency (Hz)')
 ylabel('Log Percentage of Total Power')
-    set(gca,'fontsize',16)
+set(gca,'fontsize',16)
 
 
 subplot(1,2,2)
@@ -159,8 +159,8 @@ title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{8}])
 %     patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
 % end
 
-legend([line1,line2],{'RC+S LFP','Intraoperative NeuroOmega LFP'});
-    set(gca,'fontsize',16)
+legend([line1,line2],{'RC+S','Intraoperative NeuroOmega'});
+set(gca,'fontsize',16)
 
 %%
 if saveFigure

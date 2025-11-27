@@ -16,7 +16,7 @@ dataMatrixIntraop = [];
 timeMatrixIntraop = [];
 includeLFP = true;
 includeECOG = true;
-counter = 1;
+counter = 0;
 
 %run(fullfile(getenv('matlab_devel_dir'),'patient_config_files',subject, 'patient_config_file.m'))
 
@@ -24,19 +24,18 @@ if includeLFP
     % lfp
     dataLFP = dataFile.lfp.contact;
     fsLFP = dataFile.lfp.Fs(1);
-    if ~exist('fs','var')
-        fs= fsLFP;
-    end
+    fs = fsLFP;
+
     for jj = 1:length(dataLFP)
         dataInt = dataLFP(jj).raw_signal;
         timeVec = [0:length(dataInt)-1]/fs;
         dataMatrixIntraop = [dataMatrixIntraop; dataInt];
         timeMatrixIntraop = [timeMatrixIntraop;timeVec];
         if jj <=4
-            chanCellIntraop{jj} = ['LFPL' sprintf('%d',counter)];
+            chanCellIntraop{counter+1} = ['LFPL' sprintf('%d',counter)];
             counter = counter + 1;
-        elseif jj >4
-            chanCellIntraop{jj} = ['LFPR' sprintf('%d',counter)];
+        elseif jj > 3
+            chanCellIntraop{counter+1} = ['LFPR' sprintf('%d',counter)];
             counter = counter + 1;
         end
     end
@@ -47,17 +46,19 @@ if includeECOG
     % setup sampling rates
     dataECOG = dataFile.ecog.contact;
     fsECOG = dataFile.ecog.Fs(1);
-    fs = fsECOG;
+    if ~exist('fs','var')
+        fs= fsECOG;
+    end
     for jj = 1:length(dataECOG)
         dataInt = dataECOG(jj).raw_signal;
         timeVec = [0:length(dataInt)-1]/fs;
         dataMatrixIntraop = [dataMatrixIntraop; dataInt];
         timeMatrixIntraop = [timeMatrixIntraop;timeVec];
         if jj <=4
-            chanCellIntraop{counter} = ['ECOGL' sprintf('%d',counter)];
+            chanCellIntraop{counter+1} = ['ECOGL' sprintf('%d',counter)];
             counter = counter + 1;
         elseif jj >4
-            chanCellIntraop{counter} = ['ECOGR' sprintf('%d',counter)];
+            chanCellIntraop{counter+1} = ['ECOGR' sprintf('%d',counter)];
             counter = counter + 1;
         end
     end
@@ -92,11 +93,12 @@ if strcmp(rerefChoice,'bipolarReref')
     dataPreProcIntraop = ft_preprocessing(cfgIntraop,dataIntraop);
 elseif strcmp(rerefChoice,'bipolarSkipReref') & length(dataIntraop.label)==16
 
+  
     bipolarSkip_montage.labelold  = {
-        'LFPL1','LFPL2','LFPL3','LFPL4',...
-        'LFPR5','LFPR6','LFPR7','LFPR8',...
-        'ECOGL9','ECOGL10','ECOGL11','ECOGL12',...
-        'ECOGR13','ECOGR14','ECOGR15','ECOGR16'
+        'LFPL0','LFPL1','LFPL2','LFPL3',...
+        'LFPR4','LFPR5','LFPR6','LFPR7',...
+        'ECOGL8','ECOGL9','ECOGL10','ECOGR11',...
+        'ECOGR12','ECOGR13','ECOGR14','ECOGR15'
         };
 
     bipolarSkip_montage.labelnew  = {
@@ -105,6 +107,7 @@ elseif strcmp(rerefChoice,'bipolarSkipReref') & length(dataIntraop.label)==16
         'ECOGL10-8','ECOGL11-9',...
         'ECOGR14-12','ECOGR15-13',
         };
+
     bipolarSkip_montage.tra       = [
         -1 0 +1  0  0  0  0  0  0  0  0  0  0  0  0  0
         0 -1  0 +1  0  0  0  0  0  0  0  0  0  0  0  0
