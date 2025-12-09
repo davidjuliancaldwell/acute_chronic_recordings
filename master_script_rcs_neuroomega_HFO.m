@@ -3,7 +3,7 @@ setup_rcs
 % for RCS06 data files on dropbox, bipolarSkipReref because that is how the
 % chronc files are (intraop to match)
 % also - be cautious re: labelling of electrodes in compare_intra_op script
-% 
+%
 
 saveFigure = 0;
 boxEnv = getenv('box_dir');
@@ -39,10 +39,14 @@ for subjNum = 1:length(subjsToAnalyze)
     pathDataIntraOp = intraOpFiles{subjNum};
     pathDataRcs = rcsFiles{subjNum};
     subj = subjsToAnalyze{subjNum};
+    if ~isempty(makeNan{subjNum})
+        startIntraop = makeNan{subjNum}{1};
+        endIntraop = makeNan{subjNum}{2};
+    end
 
-    analyze_rcs_intraop_vs_rcs_HFO
-    process_rcs_data_HFO
+    analyze_intraop_HFO
+    analyze_rcs_HFO
     compare_intraop_rcs_HFO
-   % close all
+    % close all
 
 end

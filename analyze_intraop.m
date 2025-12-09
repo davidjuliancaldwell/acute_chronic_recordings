@@ -23,6 +23,12 @@ if includeLFP
 
     for jj = 1:length(dataLFP)
         dataInt = dataLFP(jj).raw_signal;
+        % subselect data of interest after manual data quality check
+        if ~isempty(makeNan{subjNum})
+            for nanInd = 1:length(startIntraop)
+                dataInt(startIntraop(nanInd):endIntraop(nanInd)) = NaN;
+            end
+        end
         timeVec = [0:length(dataInt)-1]/fs;
         dataMatrixIntraop = [dataMatrixIntraop; dataInt];
         timeMatrixIntraop = [timeMatrixIntraop;timeVec];
@@ -46,6 +52,12 @@ if includeECOG
     end
     for jj = 1:length(dataECOG)
         dataInt = dataECOG(jj).raw_signal;
+        % subselect data of interest after manual data quality check
+        if ~isempty(makeNan{subjNum})
+            for nanInd = 1:length(startIntraop)
+                dataInt(startIntraop(nanInd):endIntraop(nanInd)) = NaN;
+            end
+        end
         timeVec = [0:length(dataInt)-1]/fs;
         dataMatrixIntraop = [dataMatrixIntraop; dataInt];
         timeMatrixIntraop = [timeMatrixIntraop;timeVec];
@@ -146,6 +158,24 @@ cfg1Intraop = [];
 cfg1Intraop.overlap = 0.5;
 cfg1Intraop.length = 2;
 dataPreProcOverlapIntraop = ft_redefinetrial(cfg1Intraop,dataPreProcIntraop);
+
+% exclude any trial with NaN's
+numTrials = length(dataPreProcOverlapIntraop.trial);
+keepTrial = ones(1,numTrials);
+% exclude nans
+for iteration = 1:numTrials
+    tempData = dataPreProcOverlapIntraop.trial{iteration}(1,:); % first channel
+    indsNan = isnan(tempData);
+    if sum(indsNan)>0
+        keepTrial(iteration)=0;
+    end
+end
+
+keepTrial = logical(keepTrial);
+
+cfgKeepChannels = [];
+cfgKeepChannels.trials = keepTrial;
+dataPreProcOverlapIntraop  = ft_preprocessing(cfgKeepChannels,dataPreProcOverlapIntraop);
 
 cfg2Intraop = [];
 cfg2Intraop.output = 'pow';

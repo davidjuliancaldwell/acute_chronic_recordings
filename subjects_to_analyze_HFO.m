@@ -55,6 +55,12 @@ rcsFilesSide = {
     'r';
 };
 
+makeNan = {
+    {[233583],
+    [1235880]},
+    []
+};
+
 % RCS02 - 1 day after
 % RCS03 - 13-Feb from 14-Jan 
 % RCS04 - 13-July from ??? 11-Oct was 4 month visit, so July 11 was 1 month

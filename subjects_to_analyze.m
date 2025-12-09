@@ -72,6 +72,12 @@ sidesToUseCell = {
   'b'
 };
 
+makeNan = {
+    {[125464,1079430,1244550],
+    [253694,1182610,1309740]},
+    []
+};
+
 % new double files
 %RCS02 - 3 week clinic visit 
 

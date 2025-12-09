@@ -35,9 +35,13 @@ for subjNum = 1:length(subjsToAnalyze)
     iterationInterestSpecific = iterationInterest{subjNum};
     rerefChoice = rerefCell{subjNum};
     sidesToUse = sidesToUseCell{subjNum};
+    if ~isempty(makeNan{subjNum})
+        startIntraop = makeNan{subjNum}{1};
+        endIntraop = makeNan{subjNum}{2};
+    end
 
-    analyze_rcs_intraop_vs_rcs
-    process_rcs_data
+    analyze_intraop
+    analyze_rcs
     compare_intraop_rcs
    % close all
 

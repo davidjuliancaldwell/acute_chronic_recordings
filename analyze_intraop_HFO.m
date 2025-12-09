@@ -28,6 +28,12 @@ if includeLFP
 
     for jj = 1:length(dataLFP)
         dataInt = dataLFP(jj).raw_signal;
+        % subselect data of interest after manual data quality check
+        if ~isempty(makeNan{subjNum})
+            for nanInd = 1:length(startIntraop)
+                dataInt(startIntraop(nanInd):endIntraop(nanInd)) = NaN;
+            end
+        end   
         timeVec = [0:length(dataInt)-1]/fs;
         dataMatrixIntraop = [dataMatrixIntraop; dataInt];
         timeMatrixIntraop = [timeMatrixIntraop;timeVec];
@@ -51,6 +57,12 @@ if includeECOG
     end
     for jj = 1:length(dataECOG)
         dataInt = dataECOG(jj).raw_signal;
+        % subselect data of interest after manual data quality check
+        if ~isempty(makeNan{subjNum})
+            for nanInd = 1:length(startIntraop)
+                dataInt(startIntraop(nanInd):endIntraop(nanInd)) = NaN;
+            end
+        end
         timeVec = [0:length(dataInt)-1]/fs;
         dataMatrixIntraop = [dataMatrixIntraop; dataInt];
         timeMatrixIntraop = [timeMatrixIntraop;timeVec];
@@ -81,7 +93,7 @@ dataIntraop.time = timeCellIntraop;       % cell-array containing a time axis fo
 % sample of each trial
 %% preprocess
 
-% here we do the rereferencing 
+% here we do the rereferencing
 
 if strcmp(rerefChoice,'bipolarReref')
     cfgIntraop = [];
@@ -93,7 +105,7 @@ if strcmp(rerefChoice,'bipolarReref')
     dataPreProcIntraop = ft_preprocessing(cfgIntraop,dataIntraop);
 elseif strcmp(rerefChoice,'bipolarSkipReref') & length(dataIntraop.label)==16
 
-  
+
     bipolarSkip_montage.labelold  = {
         'LFPL0','LFPL1','LFPL2','LFPL3',...
         'LFPR4','LFPR5','LFPR6','LFPR7',...
@@ -132,10 +144,10 @@ elseif strcmp(rerefChoice,'bipolarSkipReref') & length(dataIntraop.label)==8
         'ECOG10-8','ECOG11-9',...
         };
     bipolarSkip_montage.tra       = [
-        -1 0 +1  0  0  0  0  0  
-        0 -1  0 +1  0  0  0  0  
+        -1 0 +1  0  0  0  0  0
+        0 -1  0 +1  0  0  0  0
         0  0  0  0 -1  0 +1  0
-        0  0  0  0  0 -1  0 +1 
+        0  0  0  0  0 -1  0 +1
         ];
     cfgIntraop= [];
     cfgIntraop.channel = 'all'; % this is the default
@@ -153,6 +165,24 @@ cfg1Intraop = [];
 cfg1Intraop.overlap = 0.5;
 cfg1Intraop.length = 2;
 dataPreProcOverlapIntraop = ft_redefinetrial(cfg1Intraop,dataPreProcIntraop);
+
+% exclude any trial with NaN's
+numTrials = length(dataPreProcOverlapIntraop.trial);
+keepTrial = ones(1,numTrials);
+% exclude nans
+for iteration = 1:numTrials
+    tempData = dataPreProcOverlapIntraop.trial{iteration}(1,:); % first channel
+    indsNan = isnan(tempData);
+    if sum(indsNan)>0
+        keepTrial(iteration)=0;
+    end
+end
+
+keepTrial = logical(keepTrial);
+
+cfgKeepChannels = [];
+cfgKeepChannels.trials = keepTrial;
+dataPreProcOverlapIntraop  = ft_preprocessing(cfgKeepChannels,dataPreProcOverlapIntraop);
 
 cfg2Intraop = [];
 cfg2Intraop.output = 'pow';
@@ -194,7 +224,7 @@ plot(base_fre1Intraop.averagedBins')
 xlabel('Frequency bins')
 ylabel('Percent of Total Power Across Bin Intraoperative Neuroomega')
 
-%% working on phase amplitude coupling 
+%% working on phase amplitude coupling
 
 cfgCrossFreq =[];
 cfgCrossFreq.method = 'mi';
