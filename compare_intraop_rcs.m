@@ -23,7 +23,6 @@ end
 % RC+S ECoG and DBS channels
 base_fre1RCScollapse = {};
 
-
 base_fre1RCScollapse.averagedBins = [cell2mat(base_fre1RCSall.averagedBins{1}')];
 base_fre1RCScollapse.label = [base_fre1RCSall.chans{1}{:}];
 base_fre1RCScollapse.normalizedPow = [cell2mat(base_fre1RCSall.normalizedPow{1}')];
@@ -109,7 +108,7 @@ for index=1:5
     end
 end
 
-legend([line1,line2],{'RC+S ECoG','Intraoperative NeuroOmega ECoG'});
+legend([line1,line2],{'RC+S','Intraoperative NeuroOmega'});
 set(gca,'fontsize',16)
 
 subplot(2,1,2)
@@ -119,6 +118,16 @@ line2 = stdshade(log10(base_fre1Intraop.normalizedPow(indicesLFPintra,:)),0.5,'r
 xlabel('Frequency (Hz)')
 ylabel('Log Percentage of Total Power')
 title([subj ' Comparison between normalized RC+S and Intraoperative NeuroOmega data for LFP signals from DBS Channels'])
+
+%%
+% significance stars
+for index=1:5
+    if statsResults.pLFP(index)<=0.05
+        scatter((freqEdgesPlot(index,2)+freqEdgesPlot(index,1))/2,maxVal-0.25,100,'k*'); %adds a marker
+    end
+end
+
+set(gca,'fontsize',16)
 
 % make shaded regions of different frequency regions
 freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -133,16 +142,7 @@ for index = 1:size(freqEdgesPlot,1)
     patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
 end
 
-%%
-% significance stars
-for index=1:5
-    if statsResults.pLFP(index)<=0.05
-        scatter((freqEdgesPlot(index,2)+freqEdgesPlot(index,1))/2,maxVal-0.25,100,'k*'); %adds a marker
-    end
-end
-
-legend([line1,line2],{'RC+S LFP','Intraoperative NeuroOmega LFP'});
-set(gca,'fontsize',16)
+legend([line1,line2],{'RC+S','Intraoperative NeuroOmega'});
 
 %%
 if saveFigure
@@ -161,7 +161,8 @@ if length(base_fre1Intraop.label) ==4
     line2 = stdshade(log10(base_fre1Intraop.normalizedPow(1,:)),0.5,'r');
     xlabel('Frequency (Hz)')
     ylabel('Log Percentage of Total Power')
-    title([subj ' Intraop vs. RC+S ECoG ' base_fre1Intraop.label{1}])
+    title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{1}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -174,13 +175,13 @@ if length(base_fre1Intraop.label) ==4
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(2,2,2)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(2,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.normalizedPow(2,:)),0.5,'r');
-    title([subj 'Intraop vs. RC+S ECoG ' base_fre1Intraop.label{2}])
+    title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{2}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -193,13 +194,13 @@ if length(base_fre1Intraop.label) ==4
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(2,2,3)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(3,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.normalizedPow(3,:)),0.5,'r');
-    title([subj ' Intraop vs. RC+S LFP ' base_fre1Intraop.label{3}])
+    title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{3}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -212,15 +213,14 @@ if length(base_fre1Intraop.label) ==4
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(2,2,4)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(4,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.normalizedPow(4,:)),0.5,'r');
-    xlabel('Frequency (Hz)')
-    ylabel('Log Percentage of Total Power')
-    title([subj ' Intraop vs. RC+S LFP ' base_fre1Intraop.label{4}])
+    title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{4}])
+    set(gca,'fontsize',16)
+
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -234,8 +234,8 @@ if length(base_fre1Intraop.label) ==4
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
 
-    legend([line1,line2],{'RC+S LFP','Intraoperative NeuroOmega LFP'});
-    set(gca,'fontsize',16)
+    legend([line1,line2],{'RC+S','Intraoperative NeuroOmega'});
+
 
 elseif length(base_fre1Intraop.label) ==8
     fig3 = figure;
@@ -246,6 +246,7 @@ elseif length(base_fre1Intraop.label) ==8
     xlabel('Frequency (Hz)')
     ylabel('Log Percentage of Total Power')
     title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{1}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -258,13 +259,13 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(4,2,2)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(2,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.normalizedPow(2,:)),0.5,'r');
     title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{2}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -277,13 +278,13 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(4,2,3)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(3,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.normalizedPow(3,:)),0.5,'r');
     title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{3}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -296,13 +297,13 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(4,2,4)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(4,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.normalizedPow(4,:)),0.5,'r');
     title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{4}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -315,13 +316,13 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(4,2,5)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(5,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.normalizedPow(5,:)),0.5,'r');
     title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{5}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -334,13 +335,13 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(4,2,6)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(6,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.normalizedPow(6,:)),0.5,'r');
     title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{6}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -353,13 +354,13 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(4,2,7)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(7,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.normalizedPow(7,:)),0.5,'r');
     title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{7}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -372,13 +373,13 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(4,2,8)
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(8,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.normalizedPow(8,:)),0.5,'r');
     title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{8}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -392,9 +393,7 @@ elseif length(base_fre1Intraop.label) ==8
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
 
-    legend([line1,line2],{'RC+S LFP','Intraoperative NeuroOmega LFP'});
-    set(gca,'fontsize',16)
-
+    legend([line1,line2],{'RC+S','Intraoperative NeuroOmega'});
 
 end
 
@@ -407,7 +406,7 @@ if saveFigure
     exportgraphics(tempFig,fullfile(folderFigures,[subj 'indChans_compare_ECoG_LFP_' splitPath{10} '_' splitPath{11} '.eps']))
 end
 
-%% do 4 x 2 plot
+%% do 2 x 2 plot
 if length(base_fre1Intraop.label) ==4
     fig3 = figure;
     subplot(2,2,1)
@@ -416,7 +415,8 @@ if length(base_fre1Intraop.label) ==4
     line2 = stdshade(log10(base_fre1Intraop.powspctrm(1,:)),0.5,'r');
     xlabel('Frequency (Hz)')
     ylabel('Log Percentage of Total Power')
-    title([subj ' Intraop vs. RC+S ECoG ' base_fre1Intraop.label{1}])
+    title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{1}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -429,13 +429,14 @@ if length(base_fre1Intraop.label) ==4
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
+
 
     subplot(2,2,2)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(2,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.powspctrm(2,:)),0.5,'r');
-    title([subj 'Intraop vs. RC+S ECoG ' base_fre1Intraop.label{2}])
+    title([subj 'Intraop vs. RC+S ' base_fre1Intraop.label{2}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -448,13 +449,13 @@ if length(base_fre1Intraop.label) ==4
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(2,2,3)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(3,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.powspctrm(3,:)),0.5,'r');
-    title([subj ' Intraop vs. RC+S LFP ' base_fre1Intraop.label{3}])
+    title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{3}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -467,15 +468,13 @@ if length(base_fre1Intraop.label) ==4
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(2,2,4)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(4,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.powspctrm(4,:)),0.5,'r');
-    xlabel('Frequency (Hz)')
-    ylabel('Log Percentage of Total Power')
-    title([subj ' Intraop vs. RC+S LFP ' base_fre1Intraop.label{4}])
+    title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{4}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -490,7 +489,6 @@ if length(base_fre1Intraop.label) ==4
     end
 
     legend([line1,line2],{'RC+S','Intraoperative NeuroOmega'});
-    set(gca,'fontsize',16)
 
 elseif length(base_fre1Intraop.label) ==8
     fig3 = figure;
@@ -500,7 +498,8 @@ elseif length(base_fre1Intraop.label) ==8
     line2 = stdshade(log10(base_fre1Intraop.powspctrm(1,:)),0.5,'r');
     xlabel('Frequency (Hz)')
     ylabel('Log Percentage of Total Power')
-    title([subj ' Intraop vs. RC+S ECoG ' base_fre1Intraop.label{1}])
+    title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{1}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -513,13 +512,13 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(4,2,2)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(2,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.powspctrm(2,:)),0.5,'r');
-    title([subj ' Intraop vs. RC+S ECoG ' base_fre1Intraop.label{2}])
+    title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{2}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -532,13 +531,13 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(4,2,3)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(3,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.powspctrm(3,:)),0.5,'r');
-    title([subj ' Intraop vs. RC+S ECoG ' base_fre1Intraop.label{3}])
+    title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{3}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -551,13 +550,13 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(4,2,4)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(4,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.powspctrm(4,:)),0.5,'r');
-    title([subj ' Intraop vs. RC+S ECoG ' base_fre1Intraop.label{4}])
+    title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{4}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -570,13 +569,13 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(4,2,5)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(5,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.powspctrm(5,:)),0.5,'r');
-    title([subj ' Intraop vs. RC+S LFP ' base_fre1Intraop.label{5}])
+    title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{5}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -589,13 +588,13 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(4,2,6)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(6,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.powspctrm(6,:)),0.5,'r');
-    title([subj ' Intraop vs. RC+S LFP ' base_fre1Intraop.label{6}])
+    title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{6}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -608,13 +607,13 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(4,2,7)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(7,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.powspctrm(7,:)),0.5,'r');
-    title([subj ' Intraop vs. RC+S LFP ' base_fre1Intraop.label{7}])
+    title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{7}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -627,13 +626,13 @@ elseif length(base_fre1Intraop.label) ==8
         yVals = [minVal minVal maxVal maxVal];
         patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
     end
-    set(gca,'fontsize',16)
 
     subplot(4,2,8)
     line1 = stdshade(log10(base_fre1RCScollapse.powspctrm(8,:)),0.5,'b');
     hold on
     line2 = stdshade(log10(base_fre1Intraop.powspctrm(8,:)),0.5,'r');
-    title([subj ' Intraop vs. RC+S LFP ' base_fre1Intraop.label{8}])
+    title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{8}])
+    set(gca,'fontsize',16)
 
     % make shaded regions of different frequency regions
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
@@ -648,7 +647,7 @@ elseif length(base_fre1Intraop.label) ==8
     end
 
     legend([line1,line2],{'RC+S','Intraoperative NeuroOmega'});
-    set(gca,'fontsize',16)
+
 
 
 end
