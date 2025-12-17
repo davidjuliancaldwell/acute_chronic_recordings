@@ -20,20 +20,21 @@ elseif strcmp(sidesToUse,'l')
 
 end
 
-% RC+S ECoG and DBS channels
+% RC+S ECoG and DBS channels - collapse and average for channel wise
+% statistics , permutation later 
 base_fre1RCScollapse = {};
 
-base_fre1RCScollapse.averagedBins = [cell2mat(base_fre1RCSall.averagedBins{1}')];
+base_fre1RCScollapse.averagedBins = [squeeze(mean(cell2mat(base_fre1RCSall.averagedBins{1}),1))];
 base_fre1RCScollapse.label = [base_fre1RCSall.chans{1}{:}];
-base_fre1RCScollapse.normalizedPow = [cell2mat(base_fre1RCSall.normalizedPow{1}')];
-base_fre1RCScollapse.powspctrm = [cell2mat(base_fre1RCSall.powspctrm{1}')];
+base_fre1RCScollapse.normalizedPow = [squeeze(mean(cell2mat(base_fre1RCSall.normalizedPow{1}),1))];
+base_fre1RCScollapse.powspctrm = [squeeze(mean(cell2mat(base_fre1RCSall.powspctrm{1}),1))];
 
 if length(base_fre1RCSall.averagedBins) > 1
     for rcsTrial = 2:length(base_fre1RCSall.averagedBins)
-        base_fre1RCScollapse.averagedBins = [base_fre1RCScollapse.averagedBins; cell2mat(base_fre1RCSall.averagedBins{rcsTrial}')];
+        base_fre1RCScollapse.averagedBins = [base_fre1RCScollapse.averagedBins;squeeze(mean(cell2mat(base_fre1RCSall.averagedBins{rcsTrial}),1))];
         base_fre1RCScollapse.label = [base_fre1RCScollapse.label base_fre1RCSall.chans{rcsTrial}{:}];
-        base_fre1RCScollapse.normalizedPow = [base_fre1RCScollapse.normalizedPow; cell2mat(base_fre1RCSall.normalizedPow{rcsTrial}')];
-        base_fre1RCScollapse.powspctrm = [base_fre1RCScollapse.powspctrm; cell2mat(base_fre1RCSall.powspctrm{rcsTrial}')];
+        base_fre1RCScollapse.normalizedPow = [base_fre1RCScollapse.normalizedPow; squeeze(mean(cell2mat(base_fre1RCSall.normalizedPow{rcsTrial}),1))];
+        base_fre1RCScollapse.powspctrm = [base_fre1RCScollapse.powspctrm; squeeze(mean(cell2mat(base_fre1RCSall.powspctrm{rcsTrial}),1))];
     end
 end
 
@@ -42,17 +43,21 @@ indicesLFPRCS = ones(length(base_fre1RCScollapse.label),1);
 indicesLFPRCS(indicesECOGRCS) = 0;
 indicesLFPRCS = find(indicesLFPRCS==1);
 
+% collapse across ECoG
+base_fre1Intraop_avg.averagedBins = squeeze(mean(base_fre1Intraop.averagedBins,1));
+base_fre1Intraop_avg.normalizedPow = squeeze(mean(base_fre1Intraop.normalizedPow,1));
+%%
 if signedRankTest
     % rank sum test across channels
     for index = 1:size(base_fre1RCScollapse.averagedBins,2)
-        [p,h,stats] = signrank(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index),base_fre1Intraop.averagedBins(indicesECOGintra,index));
+        [p,h,stats] = signrank(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index),base_fre1Intraop_avg.averagedBins(indicesECOGintra,index));
         statsResults.pECOG(index)=p;
         statsResults.hECOG(index)=h;
         statsResults.statsECOG(index) = stats;
     end
 
     for index = 1:size(base_fre1RCScollapse.averagedBins,2)
-        [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesLFPRCS,index),base_fre1Intraop.averagedBins(indicesLFPintra,index));
+        [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesLFPRCS,index),base_fre1Intraop_avg.averagedBins(indicesLFPintra,index));
         statsResults.pLFP(index)=p;
         statsResults.hLFP(index)=h;
         statsResults.statsLFP(index) = stats;
@@ -62,28 +67,32 @@ if signedRankTest
 elseif rankSumTest
     % rank sum test across channels
     for index = 1:size(base_fre1RCS.averagedBins,2)
-        [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index),base_fre1Intraop.averagedBins(indicesECOGintra,index));
+        [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index),base_fre1Intraop_avg.averagedBins(indicesECOGintra,index));
         statsResults.pECOG(index)=p;
         statsResults.hECOG(index)=h;
         statsResults.statsECOG(index) = stats;
     end
 
     for index = 1:size(base_fre1RCS.averagedBins,2)
-        [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesLFPRCS,index),base_fre1Intraop.averagedBins(indicesLFPintra,index));
+        [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesLFPRCS,index),base_fre1Intraop_avg.averagedBins(indicesLFPintra,index));
         statsResults.pLFP(index)=p;
         statsResults.hLFP(index)=h;
         statsResults.statsLFP(index) = stats;
     end
 end
 
-statsCell{subjNum} = statsResults;
+if permutationTest
 
+end
+
+statsCell{subjNum} = statsResults;
+%%
 % plot mean + SEM of frequency spectrum
 fig1 = figure;
 subplot(2,1,1)
 line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(indicesECOGRCS,:)),0.5,'b');
 hold on
-line2 = stdshade(log10(base_fre1Intraop.normalizedPow(indicesECOGintra,:)),0.5,'r');
+line2 = stdshade(log10(base_fre1Intraop_avg.normalizedPow(indicesECOGintra,:)),0.5,'r');
 xlabel('Frequency (Hz)')
 ylabel('Log Percentage of Total Power')
 title([subj ' Comparison between normalized RC+S and Intraoperative NeuroOmega data for ECoG Channels'])
@@ -100,7 +109,7 @@ for index = 1:size(freqEdgesPlot,1)
     patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
 end
 
-%%
+%
 % significance stars
 for index=1:5
     if statsResults.pECOG(index)<=0.05
@@ -114,12 +123,12 @@ set(gca,'fontsize',16)
 subplot(2,1,2)
 line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(indicesLFPRCS,:)),0.5,'b');
 hold on
-line2 = stdshade(log10(base_fre1Intraop.normalizedPow(indicesLFPintra,:)),0.5,'r');
+line2 = stdshade(log10(base_fre1Intraop_avg.normalizedPow(indicesLFPintra,:)),0.5,'r');
 xlabel('Frequency (Hz)')
 ylabel('Log Percentage of Total Power')
 title([subj ' Comparison between normalized RC+S and Intraoperative NeuroOmega data for LFP signals from DBS Channels'])
 
-%%
+%
 % significance stars
 for index=1:5
     if statsResults.pLFP(index)<=0.05

@@ -188,8 +188,8 @@ cfg2Intraop = [];
 cfg2Intraop.output = 'pow';
 cfg2Intraop.channel = 'all';
 cfg2Intraop.method= 'mtmfft';
-cfg2Intraop.taper = 'boxcar';
-cfg2Intraop.keeptrials='no'; % put this to yes if want individual trials returned vs. average
+cfg2Intraop.taper = 'hanning';
+cfg2Intraop.keeptrials='yes'; % put this to yes if want individual trials returned vs. average
 cfg2Intraop.foi = [0.5:1:500];
 base_fre1Intraop = ft_freqanalysis(cfg2Intraop,dataPreProcOverlapIntraop);
 

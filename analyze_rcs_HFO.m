@@ -164,7 +164,7 @@ for jj = 1:length(iterations)
     cfg2RCS.output = 'pow';
     cfg2RCS.channel = 'all';
     cfg2RCS.method= 'mtmfft';
-    cfg2RCS.taper = 'boxcar';
+    cfg2RCS.taper = 'hanning';
     cfg2RCS.foi = [0.5:1:500];
     base_fre1RCS = ft_freqanalysis(cfg2RCS,dataPreProcOverlapRCS);
 

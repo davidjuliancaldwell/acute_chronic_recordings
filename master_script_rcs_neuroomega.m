@@ -22,10 +22,13 @@ for subjNum = 1:length(subjsToAnalyze)
     bipolarReref = 0;
     bipolarSkipReref = 1;
 
-    % which statistics to do: if there are matched channels can do signed
-    % rank test otherwise need to ranksum
-    signedRankTest = 1;
+    % which statistics to do signedRank/rankSum are on group level
+    signedRankTest = 0;
     rankSumTest = 0;
+
+    %permutation vs kruskal (TO DO)
+    permutationTest  = 1;
+   
 
     pathDataIntraOp = intraOpFiles{subjNum};
     pathDataRcs = rcsFiles{subjNum};

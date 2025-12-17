@@ -181,39 +181,42 @@ cfg2Intraop = [];
 cfg2Intraop.output = 'pow';
 cfg2Intraop.channel = 'all';
 cfg2Intraop.method= 'mtmfft';
-cfg2Intraop.taper = 'boxcar';
-cfg2Intraop.keeptrials='no'; % put this to yes if want individual trials returned vs. average
+cfg2Intraop.taper = 'hanning';
+cfg2Intraop.keeptrials='yes'; % put this to yes if want individual trials returned vs. average
 cfg2Intraop.foi = [0.5:1:125];
 base_fre1Intraop = ft_freqanalysis(cfg2Intraop,dataPreProcOverlapIntraop);
 
 % get mean power
-base_fre1Intraop.totalPower = sum(base_fre1Intraop.powspctrm,2);
-base_fre1Intraop.normalizedPow = 100*base_fre1Intraop.powspctrm./repmat(base_fre1Intraop.totalPower,1,size(base_fre1Intraop.powspctrm,2));
+base_fre1Intraop.totalPower = squeeze(sum(base_fre1Intraop.powspctrm,3));
+base_fre1Intraop.normalizedPow = 100*base_fre1Intraop.powspctrm./repmat(base_fre1Intraop.totalPower,1,1,size(base_fre1Intraop.powspctrm,3));
 
 % average across bins
 %freqEdges = [4 8;8 12; 13 20;20 30;50 200;13 30];
 freqEdges = [4 8;8 12; 13 20;20 30;50 125];
 %theta (4–8Hz),alpha(8–12Hz),lowbeta(13–20Hz), highbeta(20–30Hz),beta(13–30Hz),broadbandgamma(50–200Hz),
+base_fre1Intraop.averagedBins = zeros(size(base_fre1Intraop.totalPower,1),size(base_fre1Intraop.totalPower,2),size(freqEdges,1));
 for index = 1:size(freqEdges,1)
     indsInterest = (base_fre1Intraop.freq <= freqEdges(index,2)) & (base_fre1Intraop.freq > freqEdges(index,1));
-    base_fre1Intraop.averagedBins(:,index) = sum(base_fre1Intraop.normalizedPow(:,indsInterest),2);
+    base_fre1Intraop.averagedBins(:,:,index) = sum(base_fre1Intraop.normalizedPow(:,:,indsInterest),3);
 end
 
 %% plot power
+chanInt = 1;
+
 figure
-plot(base_fre1Intraop.freq,log10(base_fre1Intraop.powspctrm(1,:)))
+plot(base_fre1Intraop.freq,log10(squeeze(mean(base_fre1Intraop.powspctrm(:,chanInt,:),1))))
 xlabel('Frequency (Hz)')
 ylabel('log Power')
 title([subject ' Intraoperative Neuroomega PSD'])
 
 figure
-plot(base_fre1Intraop.freq,log10(base_fre1Intraop.normalizedPow(1,:)))
+plot(base_fre1Intraop.freq,log10(squeeze(mean(base_fre1Intraop.normalizedPow(:,chanInt,:),1))))
 xlabel('Frequency (Hz)')
 ylabel('Log Percent of Total Power')
 title([subject ' Intraoperative Neuroomega PSD'])
 
 figure
-plot(base_fre1Intraop.averagedBins')
+plot(squeeze(mean(base_fre1Intraop.averagedBins,1))')
 xlabel('Frequency bins')
 ylabel('Percent of Total Power Across Bin Intraoperative Neuroomega')
 
