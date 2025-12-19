@@ -27,7 +27,7 @@ for subjNum = 1:length(subjsToAnalyze)
     rankSumTest = 0;
 
     %permutation vs kruskal (TO DO)
-    permutationTest  = 1;
+    permute_test  = 1;
    
 
     pathDataIntraOp = intraOpFiles{subjNum};

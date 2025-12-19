@@ -1,5 +1,9 @@
 % run this after the data has been processed
 
+% note - you  must check/confirm channel order since the left/right side
+% impacts the processing order
+% this assumes the data channel order is the same for the RCS and intraop 
+
 % intraop ECoG and DBS channels
 indicesECOGintra = find(contains(base_fre1Intraop.label,'ECOG'));
 indicesLFPintra = find(contains(base_fre1Intraop.label,'LFP'));
@@ -47,6 +51,8 @@ indicesLFPRCS = find(indicesLFPRCS==1);
 base_fre1Intraop_avg.averagedBins = squeeze(mean(base_fre1Intraop.averagedBins,1));
 base_fre1Intraop_avg.normalizedPow = squeeze(mean(base_fre1Intraop.normalizedPow,1));
 %%
+% need to make sure that the order of the RCS being read in matches the
+% ECoG, with left then right being loaded in initially in setup RCS 
 if signedRankTest
     % rank sum test across channels
     for index = 1:size(base_fre1RCScollapse.averagedBins,2)
@@ -63,17 +69,16 @@ if signedRankTest
         statsResults.statsLFP(index) = stats;
     end
 
-
 elseif rankSumTest
     % rank sum test across channels
-    for index = 1:size(base_fre1RCS.averagedBins,2)
+    for index = 1:size(base_fre1RCScollapse.averagedBins,2)
         [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index),base_fre1Intraop_avg.averagedBins(indicesECOGintra,index));
         statsResults.pECOG(index)=p;
         statsResults.hECOG(index)=h;
         statsResults.statsECOG(index) = stats;
     end
 
-    for index = 1:size(base_fre1RCS.averagedBins,2)
+    for index = 1:size(base_fre1RCScollapse.averagedBins,2)
         [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesLFPRCS,index),base_fre1Intraop_avg.averagedBins(indicesLFPintra,index));
         statsResults.pLFP(index)=p;
         statsResults.hLFP(index)=h;
@@ -81,11 +86,45 @@ elseif rankSumTest
     end
 end
 
-if permutationTest
+if permute_test
+    samps_rcs_cell = cell2mat(base_fre1RCSall.averagedBins{1});
 
+    for index = 1:size(base_fre1Intraop.averagedBins,3)
+        for chan = 1:length(base_fre1RCSall.chans{1}{:})
+            samps_rcs = squeeze(samps_rcs_cell(:,chan,index));
+            samps_intra = squeeze(base_fre1Intraop.averagedBins(:,chan,index));
+            [p_val,observed_diff,effect_size] = permutationTest(samps_rcs,samps_intra, 10000);
+            statsResultsPerm.p(index,chan)=p_val;
+            statsResultsPerm.diff(index,chan) = observed_diff;
+            statsResultsPerm.effect(index,chan) = effect_size;
+        end
+    end
+
+    if length(base_fre1RCSall.averagedBins) > 1
+        counter = length(base_fre1RCSall.chans{1}{:});
+
+        for rcsTrial = 2:length(base_fre1RCSall.averagedBins)
+            samps_rcs_cell = cell2mat(base_fre1RCSall.averagedBins{rcsTrial});
+
+            for index = 1:size(base_fre1Intraop.averagedBins,3)
+                for chan = 1:length(base_fre1RCSall.chans{rcsTrial}{:})
+                    samps_rcs = squeeze(samps_rcs_cell(:,chan,index));
+                    samps_intra = squeeze(base_fre1Intraop.averagedBins(:,chan+counter,index));
+                    [p_val,effect_size] = permutationTest(samps_rcs,samps_intra, 10000);
+                    statsResultsPerm.p(index,chan+counter)=p_val;
+                    statsResultsPerm.diff(index,chan+counter) = observed_diff;
+                    statsResultsPerm.effect(index,chan+counter) = effect_size;
+                end
+
+            end
+
+        end
+        counter = counter + length(base_fre1RCSall.chans{1}{:});
+    end
 end
 
 statsCell{subjNum} = statsResults;
+statsCellPerm{subjNum} = statsResultsPerm;
 %%
 % plot mean + SEM of frequency spectrum
 fig1 = figure;
