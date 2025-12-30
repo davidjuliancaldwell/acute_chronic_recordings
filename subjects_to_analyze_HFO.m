@@ -17,13 +17,13 @@ intraOpFiles = {
     fullfile(boxEnv,'Patient In-Clinic Data/RCS09/Intraop/Data/analyzed/RCS09_07_biecogbilfp_rest_raw_ecog.mat');
 };
 rcsFiles = {
-    fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un-Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06R/Session1594746066604/DeviceNPC700425H'),
-    fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un-Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06R/Session1595962457358/DeviceNPC700425H'),
-    fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un-Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06R/Session1595963557268/DeviceNPC700425H'),
-    fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un-Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06L/Session1594746065977/DeviceNPC700424H'),
-    %fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un_Synced
-    %Data/SummitData/SummitContinuousBilateralStreaming/RCS06L/Session1595962445869/DeviceNPC700424H')m
-    %fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un_Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06L/Session1595963567828/DeviceNPC700424H')
+    {fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un-Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06R/Session1594746066604/DeviceNPC700425H'), ...
+     fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un-Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06R/Session1595962457358/DeviceNPC700425H'), ...
+     fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un-Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06R/Session1595963557268/DeviceNPC700425H'), ...
+     fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un-Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06L/Session1594746065977/DeviceNPC700424H')}
+    %{fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un_Synced
+    %Data/SummitData/SummitContinuousBilateralStreaming/RCS06L/Session1595962445869/DeviceNPC700424H')}
+    %{fullfile(dropboxEnv,'RC+S Patient Un-Synced Data/RCS06 Un_Synced Data/SummitData/SummitContinuousBilateralStreaming/RCS06L/Session1595963567828/DeviceNPC700424H')}
     };
 
 % 
@@ -59,6 +59,10 @@ makeNan = {
     {[233583],
     [1235880]},
     []
+};
+
+rcsOrder = {
+    {'R','R','R','L'}  % RCS06: R, R, R, L for the four sessions
 };
 
 % RCS02 - 1 day after

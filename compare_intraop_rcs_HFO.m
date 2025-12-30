@@ -12,14 +12,56 @@ base_fre1RCScollapse.averagedBins = cell2mat(base_fre1RCSall.averagedBins');
 base_fre1RCScollapse.label = [base_fre1RCSall.chans{:}];
 base_fre1RCScollapse.normalizedPow = cell2mat(base_fre1RCSall.normalizedPow');
 
-indicesECOGRCS = find(contains(base_fre1RCScollapse.label,{'+8','+9','+10','+11','-8','-9','-10','-11'}));
-indicesLFPRCS = ones(length(base_fre1RCScollapse.label),1);
-indicesLFPRCS(indicesECOGRCS) = 0;
-indicesLFPRCS = find(indicesLFPRCS==1);
+indicesECOGRCS = find(contains(base_fre1RCScollapse.label,'ECOG'));
+indicesLFPRCS = find(contains(base_fre1RCScollapse.label,'LFP'));
 
+% Channel-by-channel permutation test
+if permute_test
+    % Match channels by label between intraop and RCS data
+    statsResultsPerm.p = [];
+    statsResultsPerm.diff = [];
+    statsResultsPerm.effect = [];
+    statsResultsPerm.channelPairs = {};
+
+    matchedPairCount = 0;
+
+    % Loop through all RCS sessions
+    for rcsTrial = 1:length(base_fre1RCSall.averagedBins)
+        samps_rcs_cell = base_fre1RCSall.averagedBins{rcsTrial};
+        rcsLabels = base_fre1RCSall.chans{rcsTrial};
+
+        % For each RCS channel, find matching intraop channel by label
+        for rcsIdx = 1:length(rcsLabels)
+            rcsLabel = rcsLabels{rcsIdx};
+            matchIdx = find(strcmp(base_fre1Intraop.label, rcsLabel));
+
+            if ~isempty(matchIdx)
+                matchedPairCount = matchedPairCount + 1;
+
+                for freqBin = 1:size(base_fre1Intraop.averagedBins,2)
+                    samps_rcs = squeeze(samps_rcs_cell(:,freqBin));
+                    samps_intra = squeeze(base_fre1Intraop.averagedBins(:,matchIdx,freqBin));
+                    [p_val,observed_diff,effect_size] = permutationTest(samps_rcs,samps_intra, 10000);
+
+                    statsResultsPerm.p(freqBin,matchedPairCount) = p_val;
+                    statsResultsPerm.diff(freqBin,matchedPairCount) = observed_diff;
+                    statsResultsPerm.effect(freqBin,matchedPairCount) = effect_size;
+                end
+
+                statsResultsPerm.channelPairs{matchedPairCount} = rcsLabel;
+            end
+        end
+    end
+
+    % Calculate Bonferroni correction
+    numTests = size(statsResultsPerm.p,1) * size(statsResultsPerm.p,2);
+    statsResultsPerm.bonferroniThreshold = 0.05 / numTests;
+
+    statsCell{subjNum} = statsResultsPerm;
+end
 
 % rank sum test across channels
-if ~isnan(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index))
+if rankSumTest && ~isnan(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index))
 
     for index = 1:size(base_fre1RCS.averagedBins,2)
         [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index),base_fre1Intraop.averagedBins(indicesECOGintra,index));
@@ -64,7 +106,7 @@ if ~isnan(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index))
 
 end
 
-if ~isnan(base_fre1RCScollapse.averagedBins(indicesLFPRCS,index))
+if rankSumTest && ~isnan(base_fre1RCScollapse.averagedBins(indicesLFPRCS,index))
 
     for index = 1:size(base_fre1RCS.averagedBins,2)
         [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesLFPRCS,index),base_fre1Intraop.averagedBins(indicesLFPintra,index));
@@ -106,7 +148,9 @@ if ~isnan(base_fre1RCScollapse.averagedBins(indicesLFPRCS,index))
 
 end
 
-statsCell{subjNum} = statsResults;
+if rankSumTest
+    statsCell{subjNum} = statsResults;
+end
 
 if saveFigure
     tempFig = gcf;
@@ -115,52 +159,134 @@ if saveFigure
     exportgraphics(tempFig,fullfile(folderFigures,[subj '_compare_ECoG_LFP_HFO.eps']))
 end
 
-%%
+%% Individual channel plots with significance marking
+% Plot all matched channels in a loop
+if length(base_fre1Intraop.label) == 4
+    % 4-channel case (single hemisphere)
+    figure;
+    freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125;250 350];
 
-figure;
-subplot(1,2,1)
-line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(1,:)),0.5,'b');
-hold on
-line2 = stdshade(log10(base_fre1Intraop.normalizedPow(7,:)),0.5,'r');
-title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{7}])
+    for plotIdx = 1:4
+        subplot(2,2,plotIdx)
 
-% make shaded regions of different frequency regions
-% freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
-% ylims = ylim;
-% minVal = ylims(1);
-% maxVal = ylims(2);
-% colormapPatch = brewermap(size(freqEdgesPlot,1),'PuBu');
-% for index = 1:size(freqEdgesPlot,1)
-%     xVals = [freqEdgesPlot(index,1) freqEdgesPlot(index,2) freqEdgesPlot(index,2) freqEdgesPlot(index,1)];
-%     yVals = [minVal minVal maxVal maxVal];
-%     patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
-% end
-xlabel('Frequency (Hz)')
-ylabel('Log Percentage of Total Power')
-set(gca,'fontsize',16)
+        % Find matching RCS channel
+        chanLabel = base_fre1Intraop.label{plotIdx};
 
+        for rcsTrial = 1:length(base_fre1RCSall.normalizedPow)
+            rcsLabels = base_fre1RCSall.chans{rcsTrial}{:};
+            rcsIdx = find(strcmp(rcsLabels, chanLabel));
 
-subplot(1,2,2)
-line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(2,:)),0.5,'b');
-hold on
-line2 = stdshade(log10(base_fre1Intraop.normalizedPow(8,:)),0.5,'r');
+            if ~isempty(rcsIdx)
+                rcs_data_interest = base_fre1RCSall.normalizedPow{rcsTrial}{:};
+                line1 = stdshade(log10(squeeze(rcs_data_interest(:,rcsIdx,:))),0.5,'b');
+                hold on
+                line2 = stdshade(log10(squeeze(base_fre1Intraop.normalizedPow(:,plotIdx,:))),0.5,'r');
 
-title([subj ' Intraop vs. RC+S ' base_fre1Intraop.label{8}])
+                if plotIdx == 1
+                    xlabel('Frequency (Hz)')
+                    ylabel('Log Percentage of Total Power')
+                end
+                title([subj ' Intraop vs. RC+S ' chanLabel])
 
-% make shaded regions of different frequency regions
-% freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
-% ylims = ylim;
-% minVal = ylims(1);
-% maxVal = ylims(2);
-% colormapPatch = brewermap(size(freqEdgesPlot,1),'PuBu');
-% for index = 1:size(freqEdgesPlot,1)
-%     xVals = [freqEdgesPlot(index,1) freqEdgesPlot(index,2) freqEdgesPlot(index,2) freqEdgesPlot(index,1)];
-%     yVals = [minVal minVal maxVal maxVal];
-%     patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
-% end
+                % Add Bonferroni-corrected significance stars
+                if permute_test && exist('statsResultsPerm','var')
+                    chanIdx = find(strcmp(statsResultsPerm.channelPairs, chanLabel));
+                    if ~isempty(chanIdx)
+                        ylims = ylim;
+                        maxVal = ylims(2);
+                        for freqBin = 1:size(freqEdgesPlot,1)
+                            if statsResultsPerm.p(freqBin,chanIdx) < statsResultsPerm.bonferroniThreshold
+                                scatter((freqEdgesPlot(freqBin,2)+freqEdgesPlot(freqBin,1))/2, maxVal-0.15, 100, 'k*');
+                            end
+                        end
+                    end
+                end
 
-legend([line1,line2],{'RC+S','Intraoperative NeuroOmega'});
-set(gca,'fontsize',16)
+                % make shaded regions of different frequency regions
+                freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125;250 350];
+                ylims = ylim;
+                minVal = ylims(1);
+                maxVal = ylims(2);
+                colormapPatch = brewermap(size(freqEdgesPlot,1),'PuBu');
+                for index = 1:size(freqEdgesPlot,1)
+
+                    xVals = [freqEdgesPlot(index,1) freqEdgesPlot(index,2) freqEdgesPlot(index,2) freqEdgesPlot(index,1)];
+                    yVals = [minVal minVal maxVal maxVal];
+                    patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
+                end
+
+                if plotIdx == 1
+                    legend([line1,line2],{'RC+S','Intraoperative NeuroOmega'});
+                end
+                set(gca,'fontsize',16)
+                break;
+            end
+        end
+    end
+
+elseif length(base_fre1Intraop.label) == 8
+    % 8-channel case (bilateral)
+    figure;
+    freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125;250 350];
+
+    for plotIdx = 1:8
+        subplot(2,4,plotIdx)
+
+        % Find matching RCS channel
+        chanLabel = base_fre1Intraop.label{plotIdx};
+
+        for rcsTrial = 1:length(base_fre1RCSall.normalizedPow)
+            rcsLabels = base_fre1RCSall.chans{rcsTrial}{:};
+            rcsIdx = find(strcmp(rcsLabels, chanLabel));
+
+            if ~isempty(rcsIdx)
+                rcs_data_interest = base_fre1RCSall.normalizedPow{rcsTrial}{:};
+                line1 = stdshade(log10(squeeze(rcs_data_interest(:,rcsIdx,:))),0.5,'b');
+                hold on
+                line2 = stdshade(log10(squeeze(base_fre1Intraop.normalizedPow(:,plotIdx,:))),0.5,'r');
+
+                if plotIdx == 1
+                    xlabel('Frequency (Hz)')
+                    ylabel('Log Percentage of Total Power')
+                end
+                title([subj ' ' chanLabel])
+
+                % Add Bonferroni-corrected significance stars
+                if permute_test && exist('statsResultsPerm','var')
+                    chanIdx = find(strcmp(statsResultsPerm.channelPairs, chanLabel));
+                    if ~isempty(chanIdx)
+                        ylims = ylim;
+                        maxVal = ylims(2);
+                        for freqBin = 1:size(freqEdgesPlot,1)
+                            if statsResultsPerm.p(freqBin,chanIdx) < statsResultsPerm.bonferroniThreshold
+                                scatter((freqEdgesPlot(freqBin,2)+freqEdgesPlot(freqBin,1))/2, maxVal-0.15, 100, 'k*');
+                            end
+                        end
+                    end
+                end
+
+                % make shaded regions of different frequency regions
+                freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125;250 350];
+                ylims = ylim;
+                minVal = ylims(1);
+                maxVal = ylims(2);
+                colormapPatch = brewermap(size(freqEdgesPlot,1),'PuBu');
+                for index = 1:size(freqEdgesPlot,1)
+
+                    xVals = [freqEdgesPlot(index,1) freqEdgesPlot(index,2) freqEdgesPlot(index,2) freqEdgesPlot(index,1)];
+                    yVals = [minVal minVal maxVal maxVal];
+                    patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
+                end
+
+                if plotIdx == 1
+                    legend([line1,line2],{'RC+S','Intraoperative NeuroOmega'});
+                end
+                set(gca,'fontsize',16)
+                break;
+            end
+        end
+    end
+end
 
 %%
 if saveFigure

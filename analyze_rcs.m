@@ -116,9 +116,32 @@ for jjj = 1:length(pathDataRcs)
 
 
         [labels,inds]= unique(chansStruct{index});
+
+        % Add region prefix to channel labels to match intraop naming convention
+        % Use rcsOrder{subjNum} to determine L/R side for this RCS session
+        % ECoG channels: +8/+9/+10/+11 or -8/-9/-10/-11
+        % LFP channels: 0-3
+        labelsWithPrefix = cell(size(labels));
+        sideLabel = rcsOrder{subjNum}{jjj}; % Get L or R for this session indexed by subjNum and then session index
+
+        for labelIdx = 1:length(labels)
+            chanLabel = labels{labelIdx};
+            % Determine if this is ECoG or LFP based on contact numbers
+            if contains(chanLabel, {'+8','+9','+10','+11','-8','-9','-10','-11'})
+                % ECoG channel
+                prefix = ['ECOG' sideLabel];
+            else
+                % LFP channel (contacts 0-3)
+                prefix = ['LFP' sideLabel];
+            end
+            % Strip '+' character to match intraop naming convention
+            chanLabel = strrep(chanLabel, '+', '');
+            labelsWithPrefix{labelIdx} = [prefix chanLabel];
+        end
+
         if length(inds) == 4
 
-            dataRCS.label = chansStruct{index};
+            dataRCS.label = labelsWithPrefix;
             dataRCS.trial = {[dataRCSCell{index}]};     % cell-array containing a data matrix for each
             dataRCS.time = {timeRCSCell{index}};       % cell-array containing a time axis for each
 
@@ -127,7 +150,7 @@ for jjj = 1:length(pathDataRcs)
             tempDataSub = tempData(inds,:);
             tempTime = timeRCSCell{index};
             tempTimeSub = tempTime(inds,:);
-            dataRCS.label=labels;
+            dataRCS.label=labelsWithPrefix;
             dataRCS.trial = {tempDataSub};
             dataRCS.time = {tempTimeSub};
 

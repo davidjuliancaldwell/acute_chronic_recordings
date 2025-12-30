@@ -78,6 +78,11 @@ makeNan = {
     []
 };
 
+rcsOrder = {
+    {'L','R'},   % RCS02: session 1 is Left, session 2 is Right
+    {'R'}        % RCS03: session 1 is Right
+};
+
 % new double files
 %RCS02 - 3 week clinic visit 
 

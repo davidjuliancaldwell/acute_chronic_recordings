@@ -1,5 +1,6 @@
 setup_rcs
 
+
 saveFigure = 1;
 boxEnv = getenv('box_dir');
 oneDriveEnv = getenv('onedrive_dir');
@@ -42,6 +43,7 @@ for subjNum = 1:length(subjsToAnalyze)
         startIntraop = makeNan{subjNum}{1};
         endIntraop = makeNan{subjNum}{2};
     end
+    % Note: rcsOrder is accessed directly in analyze_rcs as rcsOrder{subjNum}
 
     analyze_intraop
     analyze_rcs

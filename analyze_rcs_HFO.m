@@ -2,44 +2,49 @@ plotRCSfuncs = 0;
 interpolateNan = 0;
 divideTrials = 0;
 
-splitPath = strsplit(pathDataRcs,'/');
-subject = splitPath{6}; % only for the defined paths on David's PC!
+base_fre1RCSall = {};
 
-processFlag = 2;
-shortGaps_systemTick = 0;
 
-[unifiedDerivedTimes, timeDomainData, timeDomainData_onlyTimeVariables,...
-    timeDomain_timeVariableNames, AccelData, AccelData_onlyTimeVariables,...
-    Accel_timeVariableNames, PowerData, PowerData_onlyTimeVariables,...
-    Power_timeVariableNames, FFTData, FFTData_onlyTimeVariables,...
-    FFT_timeVariableNames, AdaptiveData, AdaptiveData_onlyTimeVariables, ...
-    Adaptive_timeVariableNames, timeDomainSettings, powerSettings, fftSettings, ...
-    eventLogTable, metaData, stimSettingsOut, stimMetaData, stimLogSettings,...
-    DetectorSettings, AdaptiveStimSettings, AdaptiveEmbeddedRuns_StimSettings] = ProcessRCS(pathDataRcs, processFlag, shortGaps_systemTick);
+for jjj = 1:length(pathDataRcs)
+
+    splitPath = strsplit(pathDataRcs{jjj},'/');
+    subject = splitPath{6}; % only for the defined paths on David's PC!
+
+    processFlag = 2;
+    shortGaps_systemTick = 0;
+
+    [unifiedDerivedTimes, timeDomainData, timeDomainData_onlyTimeVariables,...
+        timeDomain_timeVariableNames, AccelData, AccelData_onlyTimeVariables,...
+        Accel_timeVariableNames, PowerData, PowerData_onlyTimeVariables,...
+        Power_timeVariableNames, FFTData, FFTData_onlyTimeVariables,...
+        FFT_timeVariableNames, AdaptiveData, AdaptiveData_onlyTimeVariables, ...
+        Adaptive_timeVariableNames, timeDomainSettings, powerSettings, fftSettings, ...
+        eventLogTable, metaData, stimSettingsOut, stimMetaData, stimLogSettings,...
+        DetectorSettings, AdaptiveStimSettings, AdaptiveEmbeddedRuns_StimSettings] = ProcessRCS(pathDataRcs{jjj}, processFlag, shortGaps_systemTick);
 
 dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
 
 [combinedDataTable] = createCombinedTable(dataStreams,unifiedDerivedTimes,metaData);
 
-%%
-if plotRCSfuncs
-    rc = rcsPlotter();
-    rc.addFolder(pathDataRcs);
-    rc.loadData()
     %%
-    chanInt = 4;
-    rc.plotTdChannel(chanInt)
-    rc.plotTdChannelBandpass(chanInt,[10,30])
-    rc.plotTdChannelPsd(chanInt,minutes(1))
-end
+    if plotRCSfuncs
+        rc = rcsPlotter();
+        rc.addFolder(pathDataRcs{jjj});
+        rc.loadData()
+        %%
+        chanInt = 4;
+        rc.plotTdChannel(chanInt)
+        rc.plotTdChannelBandpass(chanInt,[10,30])
+        rc.plotTdChannelPsd(chanInt,minutes(1))
+    end
 
-%% break up combined data table into sub recorded chunks
-iterations = unique(timeDomainSettings.recNum);
-structCombinedDataTable = {};
-chansStruct = {};
-base_fre1RCSall = {};
+    %% break up combined data table into sub recorded chunks
+    iterations = unique(timeDomainSettings.recNum);
+    structCombinedDataTable = {};
+    chansStruct = {};
 
-for jj = 1:length(iterations)
+    index = 1;
+    for jj = iterations
 
     beginning = timeDomainSettings.timeStart(jj);
     [~,minIndexStart] = min(abs(beginning - combinedDataTable.DerivedTime));
@@ -54,17 +59,17 @@ for jj = 1:length(iterations)
     %         chansStruct{jj}{jjj}={chan1,chan2};
     %     end
 
-    chansStruct{jj}=tempChans;
+        chansStruct{index}=tempChans;
 
-    structCombinedDataTable{jj} = combinedDataTable(minIndexStart:minIndexStop,:);
+        structCombinedDataTable{index} = combinedDataTable(minIndexStart:minIndexStop,:);
 
-    %% put into fieldtrip format
+        %% put into fieldtrip format
 
 
-    dataRCSCell{jj} = [structCombinedDataTable{jj}.TD_key0';
-        structCombinedDataTable{jj}.TD_key1';
-        structCombinedDataTable{jj}.TD_key2';
-        structCombinedDataTable{jj}.TD_key3';];
+        dataRCSCell{index} = [structCombinedDataTable{index}.TD_key0';
+            structCombinedDataTable{index}.TD_key1';
+            structCombinedDataTable{index}.TD_key2';
+            structCombinedDataTable{index}.TD_key3';];
     %%
 
     %backup sample rate, see below - may not actually be needed, as it seems if
@@ -72,38 +77,61 @@ for jj = 1:length(iterations)
     %usable
     tempSamplingRate = timeDomainSettings.TDsettings{jj}.sampleRate;
 
-    if isnumeric(timeDomainSettings.samplingRate(jj))
-        timeMatrixRCS =  repmat([0:length(structCombinedDataTable{jj}.DerivedTime)-1]/timeDomainSettings.samplingRate(1),4,1);
-        dataRCS.fsample = timeDomainSettings.samplingRate(1);    % sampling frequency in Hz, single number
-    elseif ((isnumeric(tempSamplingRate)) & (tempSamplingRate >0))
-        timeMatrixRCS =  repmat([0:length(structCombinedDataTable{jj}.DerivedTime)-1]/tempSamplingRate,4,1);
-        dataRCS.fsample = tempSamplingRate;    % sampling frequency in Hz, single number
+        if isnumeric(timeDomainSettings.samplingRate(jj))
+            timeMatrixRCS =  repmat([0:length(structCombinedDataTable{index}.DerivedTime)-1]/timeDomainSettings.samplingRate(1),4,1);
+            dataRCS.fsample = timeDomainSettings.samplingRate(1);    % sampling frequency in Hz, single number
+        elseif ((isnumeric(tempSamplingRate)) & (tempSamplingRate >0))
+            timeMatrixRCS =  repmat([0:length(structCombinedDataTable{index}.DerivedTime)-1]/tempSamplingRate,4,1);
+            dataRCS.fsample = tempSamplingRate;    % sampling frequency in Hz, single number
+        end
+        timeRCSCell{index} = timeMatrixRCS;
+        %dataRCS.label = {'1' '2' '3' '4'};     % cell-array containing strings, Nchan*1
+
+
+        % account for RCS times where some of the channels are the same to
+        % avoid throwing an error with the label step below
+
+
+        [labels,inds]= unique(chansStruct{index});
+
+        % Add region prefix to channel labels to match intraop naming convention
+        % Use rcsOrder{subjNum} to determine L/R side for this RCS session
+        % ECoG channels: +8/+9/+10/+11 or -8/-9/-10/-11
+        % LFP channels: 0-3
+        labelsWithPrefix = cell(size(labels));
+        sideLabel = rcsOrder{subjNum}{jjj}; % Get L or R for this session indexed by subjNum and then session index
+
+    for labelIdx = 1:length(labels)
+        chanLabel = labels{labelIdx};
+        % Determine if this is ECoG or LFP based on contact numbers
+        if contains(chanLabel, {'+8','+9','+10','+11','-8','-9','-10','-11'})
+            % ECoG channel
+            prefix = ['ECOG' sideLabel];
+        else
+            % LFP channel (contacts 0-3)
+            prefix = ['LFP' sideLabel];
+        end
+        % Strip '+' character to match intraop naming convention
+        chanLabel = strrep(chanLabel, '+', '');
+        labelsWithPrefix{labelIdx} = [prefix chanLabel];
     end
-    timeRCSCell{jj} = timeMatrixRCS;
-    %dataRCS.label = {'1' '2' '3' '4'};     % cell-array containing strings, Nchan*1
 
+        if length(inds) == 4
 
-    % account for RCS times where some of the channels are the same to
-    % avoid throwing an error with the label step below
+            dataRCS.label = labelsWithPrefix;
+            dataRCS.trial = {[dataRCSCell{index}]};     % cell-array containing a data matrix for each
+            dataRCS.time = {timeRCSCell{index}};       % cell-array containing a time axis for each
 
+        else
+            tempData = dataRCSCell{index};
+            tempDataSub = tempData(inds,:);
+            tempTime = timeRCSCell{index};
+            tempTimeSub = tempTime(inds,:);
+            dataRCS.label=labelsWithPrefix;
+            dataRCS.trial = {tempDataSub};
+            dataRCS.time = {tempTimeSub};
 
-    [labels,inds]= unique(chansStruct{jj});
-    if length(inds) == 4
-
-        dataRCS.label = chansStruct{jj};
-        dataRCS.trial = {[dataRCSCell{jj}]};     % cell-array containing a data matrix for each
-        dataRCS.time = {timeRCSCell{jj}};       % cell-array containing a time axis for each
-
-    else
-        tempData = dataRCSCell{jj};
-        tempDataSub = tempData(inds,:);
-        tempTime = timeRCSCell{jj};
-        tempTimeSub = tempTime(inds,:);
-        dataRCS.label=labels;
-        dataRCS.trial = {tempDataSub};
-        dataRCS.time = {tempTimeSub};
-
-    end
+        end
     % trial (1*Ntrial), each data matrix is a Nchan*Nsamples matrix
     % trial (1*Ntrial), each time axis is a 1*Nsamples vector
     %data.trialinfo  % this field is optional, but can be used to store
@@ -172,37 +200,40 @@ for jj = 1:length(iterations)
     base_fre1RCS.totalPower = sum(base_fre1RCS.powspctrm,2);
     base_fre1RCS.normalizedPow = 100*base_fre1RCS.powspctrm./repmat(base_fre1RCS.totalPower,1,size(base_fre1RCS.powspctrm,2));
 
-    base_fre1RCSall.totalPower{jj} = sum(base_fre1RCS.powspctrm,2);
-    base_fre1RCSall.normalizedPow{jj} = 100*base_fre1RCS.powspctrm./repmat(base_fre1RCS.totalPower,1,size(base_fre1RCS.powspctrm,2));
-    base_fre1RCSall.chans{jj} = dataRCS.label;
+        base_fre1RCSall.totalPower{jjj}{index} = sum(base_fre1RCS.powspctrm,2);
+        base_fre1RCSall.normalizedPow{jjj}{index} = 100*base_fre1RCS.powspctrm./repmat(base_fre1RCS.totalPower,1,size(base_fre1RCS.powspctrm,2));
+        base_fre1RCSall.chans{jjj}{index} = dataRCS.label;
 
-    % average across bins
-    %freqEdges = [4 8;8 12; 13 20;20 30;50 200;13 30];
-    freqEdges = [4 8;8 12; 13 20;20 30;50 125;250 350];
+        % average across bins
+        %freqEdges = [4 8;8 12; 13 20;20 30;50 200;13 30];
+        freqEdges = [4 8;8 12; 13 20;20 30;50 125;250 350];
 
-    %theta (4–8Hz),alpha(8–12Hz),lowbeta(13–20Hz), highbeta(20–30Hz),beta(13–30Hz),broadbandgamma(50–200Hz),
-    for index = 1:size(freqEdges,1)
-        indsInterest = (base_fre1RCS.freq <= freqEdges(index,2)) & (base_fre1RCS.freq > freqEdges(index,1));
-        base_fre1RCS.averagedBins(:,index) = sum(base_fre1RCS.normalizedPow(:,indsInterest),2);
-        base_fre1RCSall.averagedBins{jj}(:,index) = sum(base_fre1RCS.normalizedPow(:,indsInterest),2); 
+        %theta (4–8Hz),alpha(8–12Hz),lowbeta(13–20Hz), highbeta(20–30Hz),beta(13–30Hz),broadbandgamma(50–200Hz),
+        for binIdx = 1:size(freqEdges,1)
+            indsInterest = (base_fre1RCS.freq <= freqEdges(binIdx,2)) & (base_fre1RCS.freq > freqEdges(binIdx,1));
+            base_fre1RCS.averagedBins(:,binIdx) = sum(base_fre1RCS.normalizedPow(:,indsInterest),2);
+            base_fre1RCSall.averagedBins{jjj}{index}(:,binIdx) = sum(base_fre1RCS.normalizedPow(:,indsInterest),2);
+        end
+
+        %% plot power
+        figure
+        plot(base_fre1RCS.freq,log10(base_fre1RCS.powspctrm(1,:)))
+        xlabel('Frequency (Hz)')
+        ylabel('log Power')
+        title([subject ' RCS PSD'])
+
+        figure
+        plot(base_fre1RCS.freq,log10(base_fre1RCS.normalizedPow(1,:)))
+        xlabel('Frequency (Hz)')
+        ylabel('Log Percent of Total Power')
+        title([subject ' RCS PSD'])
+
+        figure
+        plot(base_fre1RCS.averagedBins')
+        xlabel('Frequency bins')
+        ylabel('Percent of Total Power Across Bin RCS')
+
+        index = index + 1;
     end
-
-    %% plot power
-    figure
-    plot(base_fre1RCS.freq,log10(base_fre1RCS.powspctrm(1,:)))
-    xlabel('Frequency (Hz)')
-    ylabel('log Power')
-    title([subject ' RCS PSD'])
-
-    figure
-    plot(base_fre1RCS.freq,log10(base_fre1RCS.normalizedPow(1,:)))
-    xlabel('Frequency (Hz)')
-    ylabel('Log Percent of Total Power')
-    title([subject ' RCS PSD'])
-
-    figure
-    plot(base_fre1RCS.averagedBins')
-    xlabel('Frequency bins')
-    ylabel('Percent of Total Power Across Bin RCS')
 end
 

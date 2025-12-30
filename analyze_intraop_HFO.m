@@ -33,15 +33,16 @@ if includeLFP
             for nanInd = 1:length(startIntraop)
                 dataInt(startIntraop(nanInd):endIntraop(nanInd)) = NaN;
             end
-        end   
+        end
         timeVec = [0:length(dataInt)-1]/fs;
         dataMatrixIntraop = [dataMatrixIntraop; dataInt];
         timeMatrixIntraop = [timeMatrixIntraop;timeVec];
+        % Number LFP channels 0-3 to match RCS convention
         if jj <=4
-            chanCellIntraop{counter+1} = ['LFPL' sprintf('%d',counter)];
+            chanCellIntraop{counter+1} = ['LFPL' sprintf('%d',jj-1)];
             counter = counter + 1;
-        elseif jj > 3
-            chanCellIntraop{counter+1} = ['LFPR' sprintf('%d',counter)];
+        elseif jj > 4
+            chanCellIntraop{counter+1} = ['LFPR' sprintf('%d',jj-5)];
             counter = counter + 1;
         end
     end
@@ -66,11 +67,12 @@ if includeECOG
         timeVec = [0:length(dataInt)-1]/fs;
         dataMatrixIntraop = [dataMatrixIntraop; dataInt];
         timeMatrixIntraop = [timeMatrixIntraop;timeVec];
+        % Number ECoG channels 8-11 to match RCS convention
         if jj <=4
-            chanCellIntraop{counter+1} = ['ECOGL' sprintf('%d',counter)];
+            chanCellIntraop{counter+1} = ['ECOGL' sprintf('%d',jj+7)];
             counter = counter + 1;
         elseif jj >4
-            chanCellIntraop{counter+1} = ['ECOGR' sprintf('%d',counter)];
+            chanCellIntraop{counter+1} = ['ECOGR' sprintf('%d',jj+3)];
             counter = counter + 1;
         end
     end
@@ -105,19 +107,18 @@ if strcmp(rerefChoice,'bipolarReref')
     dataPreProcIntraop = ft_preprocessing(cfgIntraop,dataIntraop);
 elseif strcmp(rerefChoice,'bipolarSkipReref') & length(dataIntraop.label)==16
 
-
     bipolarSkip_montage.labelold  = {
         'LFPL0','LFPL1','LFPL2','LFPL3',...
-        'LFPR4','LFPR5','LFPR6','LFPR7',...
-        'ECOGL8','ECOGL9','ECOGL10','ECOGR11',...
-        'ECOGR12','ECOGR13','ECOGR14','ECOGR15'
+        'LFPR0','LFPR1','LFPR2','LFPR3',...
+        'ECOGL8','ECOGL9','ECOGL10','ECOGL11',...
+        'ECOGR8','ECOGR9','ECOGR10','ECOGR11'
         };
 
     bipolarSkip_montage.labelnew  = {
         'LFPL2-0','LFPL3-1',...
-        'LFPR6-4','LFPR7-5',...
+        'LFPR2-0','LFPR3-1',...
         'ECOGL10-8','ECOGL11-9',...
-        'ECOGR14-12','ECOGR15-13',
+        'ECOGR10-8','ECOGR11-9',
         };
 
     bipolarSkip_montage.tra       = [
@@ -139,10 +140,18 @@ elseif strcmp(rerefChoice,'bipolarSkipReref') & length(dataIntraop.label)==8
 
     bipolarSkip_montage.labelold  = dataIntraop.label;
 
-    bipolarSkip_montage.labelnew  = {
-        'LFP2-0','LFP3-1',...
-        'ECOG10-8','ECOG11-9',...
-        };
+    % Determine side (L or R) from the labels
+    if contains(dataIntraop.label{1},'L')
+        bipolarSkip_montage.labelnew  = {
+            'LFPL2-0','LFPL3-1',...
+            'ECOGL10-8','ECOGL11-9',...
+            };
+    else
+        bipolarSkip_montage.labelnew  = {
+            'LFPR2-0','LFPR3-1',...
+            'ECOGR10-8','ECOGR11-9',...
+            };
+    end
     bipolarSkip_montage.tra       = [
         -1 0 +1  0  0  0  0  0
         0 -1  0 +1  0  0  0  0

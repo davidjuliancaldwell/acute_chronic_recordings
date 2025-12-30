@@ -29,6 +29,13 @@ for subjNum = 1:length(subjsToAnalyze)
     bipolarReref = 0;
     bipolarSkipReref = 1;
 
+    % which statistics to do signedRank/rankSum are on group level
+    signedRankTest = 0;
+    rankSumTest = 0;
+
+    % permutation test (preferred method)
+    permute_test = 1;
+
     if bipolarSkipReref
         rerefChoice = 'bipolarSkipReref';
     elseif bipolarReref
@@ -43,6 +50,7 @@ for subjNum = 1:length(subjsToAnalyze)
         startIntraop = makeNan{subjNum}{1};
         endIntraop = makeNan{subjNum}{2};
     end
+    % Note: rcsOrder is accessed directly in analyze_rcs_HFO as rcsOrder{subjNum}
 
     analyze_intraop_HFO
     analyze_rcs_HFO
