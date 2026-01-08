@@ -69,7 +69,7 @@ rerefCell = {
 
 sidesToUseCell = {
   'b',
-  'b'
+  'r'
 };
 
 makeNan = {

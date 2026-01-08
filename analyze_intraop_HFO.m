@@ -38,11 +38,23 @@ if includeLFP
         dataMatrixIntraop = [dataMatrixIntraop; dataInt];
         timeMatrixIntraop = [timeMatrixIntraop;timeVec];
         % Number LFP channels 0-3 to match RCS convention
-        if jj <=4
+        % Use sidesToUse to determine hemisphere labeling
+        if strcmp(sidesToUse,'b')
+            % Bilateral: channels 1-4 are LEFT, 5-8 are RIGHT
+            if jj <=4
+                chanCellIntraop{counter+1} = ['LFPL' sprintf('%d',jj-1)];
+                counter = counter + 1;
+            elseif jj > 4
+                chanCellIntraop{counter+1} = ['LFPR' sprintf('%d',jj-5)];
+                counter = counter + 1;
+            end
+        elseif strcmp(sidesToUse,'l')
+            % Left only: all channels are LEFT
             chanCellIntraop{counter+1} = ['LFPL' sprintf('%d',jj-1)];
             counter = counter + 1;
-        elseif jj > 4
-            chanCellIntraop{counter+1} = ['LFPR' sprintf('%d',jj-5)];
+        elseif strcmp(sidesToUse,'r')
+            % Right only: all channels are RIGHT
+            chanCellIntraop{counter+1} = ['LFPR' sprintf('%d',jj-1)];
             counter = counter + 1;
         end
     end
@@ -68,11 +80,23 @@ if includeECOG
         dataMatrixIntraop = [dataMatrixIntraop; dataInt];
         timeMatrixIntraop = [timeMatrixIntraop;timeVec];
         % Number ECoG channels 8-11 to match RCS convention
-        if jj <=4
+        % Use sidesToUse to determine hemisphere labeling
+        if strcmp(sidesToUse,'b')
+            % Bilateral: channels 1-4 are LEFT, 5-8 are RIGHT
+            if jj <=4
+                chanCellIntraop{counter+1} = ['ECOGL' sprintf('%d',jj+7)];
+                counter = counter + 1;
+            elseif jj >4
+                chanCellIntraop{counter+1} = ['ECOGR' sprintf('%d',jj+3)];
+                counter = counter + 1;
+            end
+        elseif strcmp(sidesToUse,'l')
+            % Left only: all channels are LEFT
             chanCellIntraop{counter+1} = ['ECOGL' sprintf('%d',jj+7)];
             counter = counter + 1;
-        elseif jj >4
-            chanCellIntraop{counter+1} = ['ECOGR' sprintf('%d',jj+3)];
+        elseif strcmp(sidesToUse,'r')
+            % Right only: all channels are RIGHT
+            chanCellIntraop{counter+1} = ['ECOGR' sprintf('%d',jj+7)];
             counter = counter + 1;
         end
     end
@@ -141,7 +165,8 @@ elseif strcmp(rerefChoice,'bipolarSkipReref') & length(dataIntraop.label)==8
     bipolarSkip_montage.labelold  = dataIntraop.label;
 
     % Determine side (L or R) from the labels
-    if contains(dataIntraop.label{1},'L')
+    % Check for LFPL or ECOGL (not just 'L' which matches both LFPL and LFPR)
+    if contains(dataIntraop.label{1},'LFPL') || contains(dataIntraop.label{1},'ECOGL')
         bipolarSkip_montage.labelnew  = {
             'LFPL2-0','LFPL3-1',...
             'ECOGL10-8','ECOGL11-9',...
@@ -215,15 +240,36 @@ for index = 1:size(freqEdges,1)
     base_fre1Intraop.averagedBins(:,index) = sum(base_fre1Intraop.normalizedPow(:,indsInterest),2);
 end
 
+%% FOOOF Spectral Parameterization (using FieldTrip/Brainstorm)
+cfgFooof = [];
+cfgFooof.method = 'mtmfft';
+cfgFooof.output = 'fooof_aperiodic';
+cfgFooof.taper = 'hanning';
+cfgFooof.foi = 1:0.5:50;
+cfgFooof.keeptrials = 'no';
+cfgFooof.fooof.freq_range = [1 50];
+cfgFooof.fooof.peak_width_limits = [1 12];
+cfgFooof.fooof.max_peaks = 6;
+cfgFooof.fooof.min_peak_height = 0.1;
+cfgFooof.fooof.aperiodic_mode = 'fixed';
+cfgFooof.fooof.peak_threshold = 2.0;
+
+base_fre1Intraop_fooof = ft_freqanalysis(cfgFooof, dataPreProcOverlapIntraop);
+base_fre1Intraop.fooofparams = base_fre1Intraop_fooof.fooofparams;
+
+fprintf('Intraop HFO FOOOF complete.\n');
+
 %% plot power
+chanInt = 7;
+
 figure
-plot(base_fre1Intraop.freq,log10(base_fre1Intraop.powspctrm(7,:)))
+plot(base_fre1Intraop.freq,log10(squeeze(mean(base_fre1Intraop.powspctrm(:,chanInt,:),1))))
 xlabel('Frequency (Hz)')
 ylabel('log Power')
 title([subject ' Intraoperative Neuroomega PSD'])
 
 figure
-plot(base_fre1Intraop.freq,log10(base_fre1Intraop.normalizedPow(7,:)))
+plot(base_fre1Intraop.freq,log10(squeeze(mean(base_fre1Intraop.normalizedPow(:,chanInt,:),1))))
 xlabel('Frequency (Hz)')
 ylabel('Log Percent of Total Power')
 title([subject ' Intraoperative Neuroomega PSD'])

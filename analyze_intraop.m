@@ -33,11 +33,23 @@ if includeLFP
         dataMatrixIntraop = [dataMatrixIntraop; dataInt];
         timeMatrixIntraop = [timeMatrixIntraop;timeVec];
         % Number LFP channels 0-3 to match RCS convention
-        if jj <=4
+        % Use sidesToUse to determine hemisphere labeling
+        if strcmp(sidesToUse,'b')
+            % Bilateral: channels 1-4 are LEFT, 5-8 are RIGHT
+            if jj <=4
+                chanCellIntraop{counter+1} = ['LFPL' sprintf('%d',jj-1)];
+                counter = counter + 1;
+            elseif jj > 4
+                chanCellIntraop{counter+1} = ['LFPR' sprintf('%d',jj-5)];
+                counter = counter + 1;
+            end
+        elseif strcmp(sidesToUse,'l')
+            % Left only: all channels are LEFT
             chanCellIntraop{counter+1} = ['LFPL' sprintf('%d',jj-1)];
             counter = counter + 1;
-        elseif jj > 4
-            chanCellIntraop{counter+1} = ['LFPR' sprintf('%d',jj-5)];
+        elseif strcmp(sidesToUse,'r')
+            % Right only: all channels are RIGHT
+            chanCellIntraop{counter+1} = ['LFPR' sprintf('%d',jj-1)];
             counter = counter + 1;
         end
     end
@@ -63,11 +75,23 @@ if includeECOG
         dataMatrixIntraop = [dataMatrixIntraop; dataInt];
         timeMatrixIntraop = [timeMatrixIntraop;timeVec];
         % Number ECoG channels 8-11 to match RCS convention
-        if jj <=4
+        % Use sidesToUse to determine hemisphere labeling
+        if strcmp(sidesToUse,'b')
+            % Bilateral: channels 1-4 are LEFT, 5-8 are RIGHT
+            if jj <=4
+                chanCellIntraop{counter+1} = ['ECOGL' sprintf('%d',jj+7)];
+                counter = counter + 1;
+            elseif jj >4
+                chanCellIntraop{counter+1} = ['ECOGR' sprintf('%d',jj+3)];
+                counter = counter + 1;
+            end
+        elseif strcmp(sidesToUse,'l')
+            % Left only: all channels are LEFT
             chanCellIntraop{counter+1} = ['ECOGL' sprintf('%d',jj+7)];
             counter = counter + 1;
-        elseif jj >4
-            chanCellIntraop{counter+1} = ['ECOGR' sprintf('%d',jj+3)];
+        elseif strcmp(sidesToUse,'r')
+            % Right only: all channels are RIGHT
+            chanCellIntraop{counter+1} = ['ECOGR' sprintf('%d',jj+7)];
             counter = counter + 1;
         end
     end
@@ -136,7 +160,8 @@ elseif strcmp(rerefChoice,'bipolarSkipReref') & length(dataIntraop.label)==8
     bipolarSkip_montage.labelold  = dataIntraop.label;
 
     % Determine side (L or R) from the labels
-    if contains(dataIntraop.label{1},'L')
+    % Check for LFPL or ECOGL (not just 'L' which matches both LFPL and LFPR)
+    if contains(dataIntraop.label{1},'LFPL') || contains(dataIntraop.label{1},'ECOGL')
         bipolarSkip_montage.labelnew  = {
             'LFPL2-0','LFPL3-1',...
             'ECOGL10-8','ECOGL11-9',...
@@ -209,6 +234,30 @@ for index = 1:size(freqEdges,1)
     indsInterest = (base_fre1Intraop.freq <= freqEdges(index,2)) & (base_fre1Intraop.freq > freqEdges(index,1));
     base_fre1Intraop.averagedBins(:,:,index) = sum(base_fre1Intraop.normalizedPow(:,:,indsInterest),3);
 end
+
+%% FOOOF Spectral Parameterization (using FieldTrip/Brainstorm)
+% FOOOF requires trial-averaged data, so run separately
+cfgFooof = [];
+cfgFooof.method = 'mtmfft';
+cfgFooof.output = 'fooof_aperiodic';
+cfgFooof.taper = 'hanning';
+cfgFooof.foi = 1:0.5:50;  % 1-50 Hz for FOOOF fitting
+cfgFooof.keeptrials = 'no';  % Required for FOOOF
+cfgFooof.fooof.freq_range = [1 50];
+cfgFooof.fooof.peak_width_limits = [1 12];
+cfgFooof.fooof.max_peaks = 6;
+cfgFooof.fooof.min_peak_height = 0.1;
+cfgFooof.fooof.aperiodic_mode = 'fixed';
+cfgFooof.fooof.peak_threshold = 2.0;
+
+base_fre1Intraop_fooof = ft_freqanalysis(cfgFooof, dataPreProcOverlapIntraop);
+
+% Store FOOOF parameters in main structure for later comparison
+base_fre1Intraop.fooofparams = base_fre1Intraop_fooof.fooofparams;
+base_fre1Intraop.fooof_powspctrm = base_fre1Intraop_fooof.powspctrm;
+base_fre1Intraop.fooof_freq = base_fre1Intraop_fooof.freq;
+
+fprintf('Intraop FOOOF complete. Channels processed: %d\n', length(base_fre1Intraop.fooofparams));
 
 %% plot power
 chanInt = 1;

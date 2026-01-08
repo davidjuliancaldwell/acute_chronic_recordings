@@ -65,6 +65,10 @@ rcsOrder = {
     {'R','R','R','L'}  % RCS06: R, R, R, L for the four sessions
 };
 
+sidesToUseCell = {
+    'b'    % RCS06 - bilateral
+};
+
 % RCS02 - 1 day after
 % RCS03 - 13-Feb from 14-Jan 
 % RCS04 - 13-July from ??? 11-Oct was 4 month visit, so July 11 was 1 month

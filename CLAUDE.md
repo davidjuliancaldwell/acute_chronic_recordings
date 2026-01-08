@@ -24,8 +24,11 @@ This script:
 ## Required Dependencies
 
 - **FieldTrip toolbox**: Expected at `../fieldtrip/` (sibling directory to this repo)
+  - Must have Brainstorm support for FOOOF (included in recent FieldTrip versions)
+  - Verify with: `ft_hastoolbox('brainstorm')`
 - **Analysis-rcs-data**: Expected at `../Analysis-rcs-data/` - contains the `ProcessRCS` function for reading RC+S data files
 - **brewermap**: Color scheme library, expected at `../fieldtrip/external/brewermap/`
+- **fooof_mat**: NO LONGER REQUIRED - Previous wrapper implementation replaced by FieldTrip native FOOOF
 
 ## Running Analyses
 
@@ -60,17 +63,20 @@ Uses `subjects_to_analyze_HFO`, `analyze_intraop_HFO`, `analyze_rcs_HFO`, and `c
 1. **Subject Configuration** (`subjects_to_analyze.m`):
    - Defines subject IDs, file paths (Box directory structure)
    - Specifies time windows, re-referencing schemes, and data quality exclusions
-   - **NEW**: `rcsOrder` variable specifies L/R hemisphere ordering for each RCS session
+   - **`sidesToUseCell`**: Specifies hemisphere(s) in intraoperative data ('b' = bilateral, 'l' = left only, 'r' = right only)
+   - **`rcsOrder`**: Specifies L/R hemisphere ordering for each RCS session
    - Returns cell arrays: `subjsToAnalyze`, `intraOpFiles`, `rcsFiles`, `timeStampStart/Stop`, `rerefCell`, `sidesToUseCell`, `makeNan`, `rcsOrder`
 
 2. **Intraoperative Data Processing** (`analyze_intraop.m`):
    - Loads `.mat` files with `ecog.contact` and `lfp.contact` structures
    - Applies manual data quality exclusions (NaN-ing bad segments via `makeNan` ranges)
-   - **NEW**: Labels channels with standardized naming:
-     - LFP: LFPL0-3, LFPR0-3 (numbered 0-3 to match RCS convention)
-     - ECoG: ECOGL8-11, ECOGR8-11 (numbered 8-11 to match RCS convention)
+   - **Channel labeling using `sidesToUse` parameter**:
+     - Bilateral ('b'): channels 1-4 → LFPL0-3/ECOGL8-11, channels 5-8 → LFPR0-3/ECOGR8-11
+     - Left only ('l'): all channels → LFPL0-3/ECOGL8-11
+     - Right only ('r'): all channels → LFPR0-3/ECOGR8-11
    - Re-references using either bipolar or bipolar-skip montages
      - **Bipolar skip montage labels**: LFPL2-0, LFPL3-1, ECOGL10-8, ECOGL11-9 (and R equivalents)
+     - For unilateral data, hemisphere detection uses `contains(label,'LFPL')` or `contains(label,'ECOGL')` (not just 'L')
    - Resamples to 250 Hz
    - Creates overlapping 2-second trials (50% overlap) via FieldTrip
    - Computes power spectral density using Hanning taper FFT
@@ -88,7 +94,11 @@ Uses `subjects_to_analyze_HFO`, `analyze_intraop_HFO`, `analyze_rcs_HFO`, and `c
      - Detects ECoG vs LFP based on contact numbers (+8/+9/+10/+11 = ECoG, 0-3 = LFP)
      - Prepends ECOGL/ECOGR/LFPL/LFPR to create labels like "ECOGL+8-10", "LFPR0-2"
    - Converts to FieldTrip format with proper channel labels
-   - Handles duplicate channels (keeps unique ones only)
+   - **Handles duplicate channels while preserving original device order:**
+     - Uses `[labels, inds] = unique(chansStruct{index})` to identify unique channels
+     - Applies `labelsWithPrefix(inds)` to restore original RCS device ordering (undoes alphabetical sorting)
+     - Selects `tempData(inds,:)` for first occurrence of each unique channel in original order
+     - Ensures channel labels always match their corresponding data rows
    - Resamples to 250 Hz if needed
    - Excludes trials with NaN values
    - Same spectral analysis pipeline as intraop
@@ -130,12 +140,14 @@ Uses `subjects_to_analyze_HFO`, `analyze_intraop_HFO`, `analyze_rcs_HFO`, and `c
 - Hemisphere (L/R) determined by `rcsOrder{subjNum}{sessionIndex}`
 - Region (ECOG/LFP) determined by contact numbers
 - **IMPORTANT**: '+' characters automatically removed via `strrep(chanLabel, '+', '')` to match intraop format
+- **Channel order preservation**: Original RCS device channel ordering is preserved using `unique()` indices to undo alphabetical sorting
 
 **Channel Matching:**
 - Comparison scripts use `strcmp()` to match channels by label
 - No longer relies on position-based indexing
 - Robust to different channel orderings and missing channels
 - RCS channels matched to intraop channels with identical labels
+- Channel labels always correspond to their data rows (order-preserving mapping via `inds` from `unique()`)
 
 ### Re-referencing Options
 
@@ -149,6 +161,90 @@ Two schemes available (set in `rerefCell`):
 - Trials with any NaN values are excluded from spectral analysis
 - **Recent work**: "manual inspection to ignore NaN parts", "working on saving individual power trials for perm test"
 
+### FOOOF Spectral Parameterization (UPDATED January 2026)
+
+**Overview:**
+FOOOF (Fitting Oscillations & One-Over-F) separates the aperiodic (1/f) component from periodic peaks in power spectra. This enables comparison of neural noise characteristics between intraoperative and clinic recordings.
+
+**Implementation:**
+- Uses FieldTrip's native FOOOF support (via Brainstorm internally)
+- Replaces previous broken `fooof_mat` wrapper implementation
+- Runs on **trial-averaged data only** (FOOOF requirement)
+
+**Configuration:**
+```matlab
+cfgFooof = [];
+cfgFooof.method = 'mtmfft';
+cfgFooof.output = 'fooof_aperiodic';  % Can also use 'fooof' or 'fooof_peaks'
+cfgFooof.taper = 'hanning';
+cfgFooof.foi = 1:0.5:50;              % 1-50 Hz for fitting
+cfgFooof.keeptrials = 'no';           % REQUIRED for FOOOF
+cfgFooof.fooof.freq_range = [1 50];
+cfgFooof.fooof.peak_width_limits = [1 12];
+cfgFooof.fooof.max_peaks = 6;
+cfgFooof.fooof.min_peak_height = 0.1;
+cfgFooof.fooof.aperiodic_mode = 'fixed';  % offset + exponent model
+cfgFooof.fooof.peak_threshold = 2.0;
+
+base_fre1_fooof = ft_freqanalysis(cfgFooof, dataPreProcOverlap);
+```
+
+**Data Structure:**
+```matlab
+% Intraoperative FOOOF results
+base_fre1Intraop.fooofparams(chanIdx).aperiodic_params  % [offset, exponent]
+base_fre1Intraop.fooofparams(chanIdx).r_squared         % Fit quality
+base_fre1Intraop.fooofparams(chanIdx).error             % Fit error
+base_fre1Intraop.fooofparams(chanIdx).peak_params       % [CF, PW, BW] for each peak
+
+% RCS FOOOF results (nested by session/iteration)
+base_fre1RCSall.fooofparams{sessionIdx}{iterIdx}(chanIdx).aperiodic_params
+base_fre1RCSall.fooofparams{sessionIdx}{iterIdx}(chanIdx).r_squared
+```
+
+**Statistical Comparison:**
+Both signed rank (paired) and rank sum (unpaired) tests are supported:
+
+1. **Signed Rank Test** (`signedRankTest = 1`):
+   - Matches channels by label between intraop and RCS
+   - Paired comparison for matched channels only
+   - More sensitive when channels correspond
+
+2. **Rank Sum Test** (`rankSumTest = 1`):
+   - Compares all intraop vs all RCS channels
+   - Unpaired comparison (no channel matching required)
+   - More robust to missing channels
+
+**Interpretation:**
+- **Exponent** (typically 1-3): Steepness of 1/f falloff
+  - Higher = steeper falloff = more neural noise
+  - Lower = flatter spectrum = less noise-dominated
+- **Offset**: Overall power level (log scale)
+- **R-squared** > 0.8: Good fit quality
+- **R-squared** < 0.8: Poor fit, may need parameter adjustment
+
+**Quality Control:**
+Use `verify_fooof_results.m` to check:
+- Fit quality (R-squared values)
+- Parameter ranges (exponents should be ~1-3)
+- Per-channel statistics
+- Identification of poor fits
+
+**Where FOOOF is Applied:**
+- `analyze_intraop.m`: After frequency binning (line ~218)
+- `analyze_rcs.m`: Inside iteration loop (line ~218)
+- `analyze_intraop_HFO.m`: After frequency binning (line ~218)
+- `analyze_rcs_HFO.m`: Inside iteration loop (line ~218)
+- `compare_intraop_rcs.m`: Signed rank and rank sum comparisons (lines ~153, ~234)
+- `compare_intraop_rcs_HFO.m`: Both test types with plotting (lines ~63, ~123)
+
+**Important Notes:**
+- FOOOF runs AFTER regular spectral analysis (with `keeptrials='yes'`)
+- Regular analysis keeps trials for permutation testing
+- FOOOF requires separate call with `keeptrials='no'` for trial averaging
+- Results stored separately in `.fooofparams` field
+- Comparison scripts automatically detect which test was run and plot accordingly
+
 ## Patient Configuration Files
 
 Located in `patient_config_files/RCS##/patient_config_file.m`. Currently minimal - mostly empty except for basic sampling rate extraction. Previously used for channel definitions but now largely unused.
@@ -161,7 +257,89 @@ Located in `patient_config_files/RCS##/patient_config_file.m`. Currently minimal
 - `permutationTest.m`: Implements permutation testing with effect size calculation
 - `permutest.m`: Alternative permutation test implementation
 
-## Recent Development Focus (UPDATED December 28, 2025)
+## Recent Development Focus
+
+### Unilateral Data Support (January 2026)
+
+**Problem:**
+Unilateral (8-channel) intraoperative data was always labeled as LEFT hemisphere, causing channel matching failures for right-hemisphere-only subjects (e.g., RCS03).
+
+**Solution (January 7, 2026):**
+- ✅ Added `sidesToUse` parameter logic to channel labeling in `analyze_intraop.m` and `analyze_intraop_HFO.m`
+- ✅ Channel labels now respect `sidesToUseCell` configuration:
+  - 'b' (bilateral): channels 1-4 → LEFT, channels 5-8 → RIGHT
+  - 'l' (left only): all channels → LEFT
+  - 'r' (right only): all channels → RIGHT
+- ✅ Fixed hemisphere detection in bipolar skip rereferencing to use `contains(label,'LFPL')` instead of `contains(label,'L')` (which incorrectly matched both LFPL and LFPR)
+
+**Files Modified:**
+- `analyze_intraop.m`: Lines 37-54 (LFP labeling), 79-96 (ECoG labeling), 164 (hemisphere detection)
+- `analyze_intraop_HFO.m`: Lines 42-59 (LFP labeling), 84-101 (ECoG labeling), 169 (hemisphere detection)
+
+**Result:**
+- RCS02 (bilateral): 8 matched channel pairs ✓
+- RCS03 (unilateral right): 4 matched channel pairs ✓
+
+### FOOOF Reimplementation (January 2026)
+
+**Completed:**
+- ✅ Replaced broken `fooof_mat` wrapper with FieldTrip native FOOOF
+- ✅ Implemented trial-averaged FOOOF analysis for both intraop and RCS data
+- ✅ Added signed rank (paired) and rank sum (unpaired) statistical tests for FOOOF parameters
+- ✅ Created FOOOF parameter comparison plots with automatic test detection
+- ✅ Extended FOOOF to HFO analysis scripts (analyze_intraop_HFO.m, analyze_rcs_HFO.m)
+- ✅ Updated verification script (verify_fooof_results.m) for new data structure
+- ✅ Simplified implementation: ~20 lines per script vs ~70 lines with broken fooof_mat
+
+**Key Changes:**
+- FOOOF now uses `cfg.output = 'fooof_aperiodic'` with `cfg.keeptrials = 'no'`
+- Results stored in `.fooofparams` field with structure: `fooofparams(chanIdx).aperiodic_params`
+- Aperiodic params order: `[offset, exponent]`
+- Signed rank test for matched channels (by label), rank sum for all channels
+- Both regular and HFO scripts have synchronized FOOOF implementation
+- Quality control via R-squared values and parameter range checking
+
+### Channel Order Preservation Fix (January 2026)
+
+**Problem:**
+MATLAB's `unique()` function alphabetically sorts channel labels, but the original RCS device channel order needed to be preserved to ensure labels matched their corresponding data rows in the `dataRCSCell` matrix.
+
+**Solution (January 7, 2026):**
+- ✅ Fixed channel label assignment in `analyze_rcs.m` and `analyze_rcs_HFO.m`
+- ✅ Now using `labelsWithPrefix(inds)` instead of just `labelsWithPrefix`
+- ✅ The `inds` output from `unique()` maps back to the original (pre-sorted) channel order
+
+**Technical Details:**
+```matlab
+[labels, inds] = unique(chansStruct{index});
+% labels = sorted unique channel labels
+% inds = indices into original array where each unique label first appears
+
+labelsWithPrefix = [add ECOG/LFP + L/R prefixes to labels];
+
+% KEY FIX: Use inds to restore original device ordering
+dataRCS.label = labelsWithPrefix(inds);  % Correct!
+% Previously: dataRCS.label = labelsWithPrefix;  % Wrong - alphabetically sorted
+
+% For duplicate channels, also use inds to select correct data rows
+tempData(inds,:);  % Selects first occurrence of each unique channel in original order
+```
+
+**Why This Matters:**
+1. **Preserves original ordering**: `unique()` sorts alphabetically ('0-2', '1-3', '10-8', '11-9'), but original RCS order might be ('1-3', '0-2', '10-8', '11-9')
+2. **Ensures label-data correspondence**: `dataRCSCell{index}` rows are in original device order, so labels must match
+3. **Handles duplicates correctly**: When some channels are duplicates (e.g., same bipolar pair recorded twice), `inds` selects the first occurrence while maintaining order
+
+**Files Modified:**
+- `analyze_rcs.m`: Lines 144, 153 (channel label assignment)
+- `analyze_rcs_HFO.m`: Lines 121, 130 (channel label assignment)
+
+**Result:**
+- Channel labels now correctly correspond to their data rows
+- Original RCS device channel ordering is preserved
+- Duplicate channel handling is robust and consistent
+
+### Channel Matching and Permutation Testing (December 2025)
 
 **Completed:**
 - ✅ Implemented channel naming harmonization between RCS and intraoperative data
@@ -179,11 +357,12 @@ Located in `patient_config_files/RCS##/patient_config_file.m`. Currently minimal
 - ✅ Restructured `analyze_rcs_HFO.m` to match regular analysis architecture (outer `jjj` loop)
 - ✅ Fixed `rcsOrder` indexing in HFO scripts: `{jjj}` instead of `{jj}`
 
-**Key Changes:**
+**Key Implementation Details:**
 - `rcsOrder` variable in `subjects_to_analyze.m` specifies hemisphere ordering (proper syntax critical!)
 - Channel labels follow LFPL/LFPR/ECOGL/ECOGR + contact number format
 - '+' characters automatically stripped from RCS labels for matching
-- Permutation test preferred over rank sum/signed rank tests
+- Permutation test preferred over rank sum/signed rank tests for frequency bins
+- Signed rank (paired) vs rank sum (unpaired) used for FOOOF parameters
 - Individual channel plots with per-channel significance testing
 - Both regular and HFO analysis scripts synchronized
 
@@ -280,11 +459,14 @@ rcsOrder = {
 1. Incorrect `rcsOrder` syntax (using `[{'L'},{'R'}]` instead of `{'L','R'}`)
 2. Wrong hemisphere ordering (L/R swapped)
 3. '+' character not being stripped from RCS labels
+4. Incorrect `sidesToUseCell` value for unilateral data
 
 **Solutions:**
 - Verify `rcsOrder` uses correct syntax: `{'L','R'}` NOT `[{'L'},{'R'}]`
 - Check `rcsOrder{subjNum}{sessionNum}` returns single char 'L' or 'R'
 - Confirm '+' stripping code exists: `chanLabel = strrep(chanLabel, '+', '')` (line 138 in analyze_rcs.m)
+- **For unilateral data**: Set `sidesToUseCell{subjNum}` to 'l' or 'r' (not 'b')
+  - Example: RCS03 has right-only data, so `sidesToUseCell{2} = 'r'`
 - Verify bipolar skip rereferencing produces expected labels (LFPL2-0, ECOGL10-8, etc.)
 
 ### Unexpected significance results

@@ -46,6 +46,7 @@ for subjNum = 1:length(subjsToAnalyze)
     pathDataIntraOp = intraOpFiles{subjNum};
     pathDataRcs = rcsFiles{subjNum};
     subj = subjsToAnalyze{subjNum};
+    sidesToUse = sidesToUseCell{subjNum};
     if ~isempty(makeNan{subjNum})
         startIntraop = makeNan{subjNum}{1};
         endIntraop = makeNan{subjNum}{2};

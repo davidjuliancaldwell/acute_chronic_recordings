@@ -1,8 +1,25 @@
 % run this after the data has been processed
 
-% intraop ECoG and DBS channels
-indicesECOGintra = find(contains(base_fre1Intraop.label,'ECOG'));
-indicesLFPintra = find(contains(base_fre1Intraop.label,'LFP'));
+% intraop ECoG and DBS channels - find all, then filter by hemisphere
+indicesECOGintraL = find(contains(base_fre1Intraop.label,'ECOGL'));
+indicesECOGintraR = find(contains(base_fre1Intraop.label,'ECOGR'));
+indicesLFPintraL = find(contains(base_fre1Intraop.label,'LFPL'));
+indicesLFPintraR = find(contains(base_fre1Intraop.label,'LFPR'));
+
+% Filter by hemisphere if unilateral data
+if strcmp(sidesToUse,'b')
+    % Bilateral - use all channels
+    indicesECOGintra = [indicesECOGintraL indicesECOGintraR];
+    indicesLFPintra = [indicesLFPintraL indicesLFPintraR];
+elseif strcmp(sidesToUse,'r')
+    % Right hemisphere only
+    indicesECOGintra = indicesECOGintraR;
+    indicesLFPintra = indicesLFPintraR;
+elseif strcmp(sidesToUse,'l')
+    % Left hemisphere only
+    indicesECOGintra = indicesECOGintraL;
+    indicesLFPintra = indicesLFPintraL;
+end
 
 
 % RC+S ECoG and DBS channels
@@ -60,7 +77,175 @@ if permute_test
     statsCell{subjNum} = statsResultsPerm;
 end
 
-% rank sum test across channels
+%% FOOOF Parameter Comparison (Signed Rank - Paired)
+if signedRankTest && isfield(base_fre1Intraop, 'fooofparams') && isfield(base_fre1RCSall, 'fooofparams')
+    fprintf('\n--- FOOOF Parameter Comparison (Signed Rank) ---\n');
+
+    % Match channels between intraop and RCS by label for paired test
+    intraopExponents = [];
+    intraopOffsets = [];
+    rcsExponents = [];
+    rcsOffsets = [];
+    matchedChannels = {};
+
+    % Loop through RCS sessions and match with intraop
+    for rcsTrial = 1:length(base_fre1RCSall.fooofparams)
+        for iterIdx = 1:length(base_fre1RCSall.fooofparams{rcsTrial})
+            rcsParams = base_fre1RCSall.fooofparams{rcsTrial}{iterIdx};
+            rcsLabels = base_fre1RCSall.chans{rcsTrial}{iterIdx};
+
+            for rcsIdx = 1:length(rcsParams)
+                rcsLabel = rcsLabels{rcsIdx};
+
+                % Find matching intraop channel by label
+                intraopIdx = find(strcmp(base_fre1Intraop.label, rcsLabel));
+
+                if ~isempty(intraopIdx)
+                    % Found a match - collect both parameters for paired comparison
+                    rcsExponents(end+1) = rcsParams(rcsIdx).aperiodic_params(2);
+                    rcsOffsets(end+1) = rcsParams(rcsIdx).aperiodic_params(1);
+                    intraopExponents(end+1) = base_fre1Intraop.fooofparams(intraopIdx).aperiodic_params(2);
+                    intraopOffsets(end+1) = base_fre1Intraop.fooofparams(intraopIdx).aperiodic_params(1);
+                    matchedChannels{end+1} = rcsLabel;
+                end
+            end
+        end
+    end
+
+    fprintf('Matched %d channel pairs for FOOOF comparison\n', length(matchedChannels));
+
+    if length(matchedChannels) > 0
+        % Signed rank test for paired samples (matched channels)
+        [p_exp, ~] = signrank(intraopExponents, rcsExponents);
+        fprintf('Exponent: Intraop mean=%.3f, RCS mean=%.3f, p=%.4f\n', ...
+            mean(intraopExponents), mean(rcsExponents), p_exp);
+
+        [p_off, ~] = signrank(intraopOffsets, rcsOffsets);
+        fprintf('Offset: Intraop mean=%.3f, RCS mean=%.3f, p=%.4f\n', ...
+            mean(intraopOffsets), mean(rcsOffsets), p_off);
+
+        % Store results
+        statsResultsFooof.exponent_p = p_exp;
+        statsResultsFooof.offset_p = p_off;
+        statsResultsFooof.intraopExponents = intraopExponents;
+        statsResultsFooof.rcsExponents = rcsExponents;
+        statsResultsFooof.intraopOffsets = intraopOffsets;
+        statsResultsFooof.rcsOffsets = rcsOffsets;
+        statsResultsFooof.matchedChannels = matchedChannels;
+    else
+        fprintf('No matched channels found for paired FOOOF comparison.\n');
+    end
+end
+
+%% FOOOF Parameter Comparison (Rank Sum - Unpaired)
+if rankSumTest && isfield(base_fre1Intraop, 'fooofparams') && isfield(base_fre1RCSall, 'fooofparams')
+    fprintf('\n--- FOOOF Parameter Comparison (Rank Sum - Unpaired) ---\n');
+
+    % Collect all channels without matching
+    allIntraopExponents = [];
+    allIntraopOffsets = [];
+    for chanIdx = 1:length(base_fre1Intraop.fooofparams)
+        allIntraopExponents(chanIdx) = base_fre1Intraop.fooofparams(chanIdx).aperiodic_params(2);
+        allIntraopOffsets(chanIdx) = base_fre1Intraop.fooofparams(chanIdx).aperiodic_params(1);
+    end
+
+    allRcsExponents = [];
+    allRcsOffsets = [];
+    for rcsTrial = 1:length(base_fre1RCSall.fooofparams)
+        for iterIdx = 1:length(base_fre1RCSall.fooofparams{rcsTrial})
+            params = base_fre1RCSall.fooofparams{rcsTrial}{iterIdx};
+            for chanIdx = 1:length(params)
+                allRcsExponents(end+1) = params(chanIdx).aperiodic_params(2);
+                allRcsOffsets(end+1) = params(chanIdx).aperiodic_params(1);
+            end
+        end
+    end
+
+    [p_exp_ranksum, ~] = ranksum(allIntraopExponents, allRcsExponents);
+    fprintf('Exponent: Intraop mean=%.3f, RCS mean=%.3f, p=%.4f\n', ...
+        mean(allIntraopExponents), mean(allRcsExponents), p_exp_ranksum);
+
+    [p_off_ranksum, ~] = ranksum(allIntraopOffsets, allRcsOffsets);
+    fprintf('Offset: Intraop mean=%.3f, RCS mean=%.3f, p=%.4f\n', ...
+        mean(allIntraopOffsets), mean(allRcsOffsets), p_off_ranksum);
+
+    % Store results
+    statsResultsFooof.exponent_p_ranksum = p_exp_ranksum;
+    statsResultsFooof.offset_p_ranksum = p_off_ranksum;
+    statsResultsFooof.intraopExponentsAll = allIntraopExponents;
+    statsResultsFooof.rcsExponentsAll = allRcsExponents;
+    statsResultsFooof.intraopOffsetsAll = allIntraopOffsets;
+    statsResultsFooof.rcsOffsetsAll = allRcsOffsets;
+end
+
+%% FOOOF Parameter Plots
+if exist('statsResultsFooof', 'var')
+    % Determine which test was run and use appropriate field
+    if isfield(statsResultsFooof, 'exponent_p')
+        % Signed rank (paired) results
+        pExp = statsResultsFooof.exponent_p;
+        pOff = statsResultsFooof.offset_p;
+        expIntraop = statsResultsFooof.intraopExponents;
+        expRCS = statsResultsFooof.rcsExponents;
+        offIntraop = statsResultsFooof.intraopOffsets;
+        offRCS = statsResultsFooof.rcsOffsets;
+        titleSuffix = 'Signed Rank';
+    elseif isfield(statsResultsFooof, 'exponent_p_ranksum')
+        % Rank sum (unpaired) results
+        pExp = statsResultsFooof.exponent_p_ranksum;
+        pOff = statsResultsFooof.offset_p_ranksum;
+        expIntraop = statsResultsFooof.intraopExponentsAll;
+        expRCS = statsResultsFooof.rcsExponentsAll;
+        offIntraop = statsResultsFooof.intraopOffsetsAll;
+        offRCS = statsResultsFooof.rcsOffsetsAll;
+        titleSuffix = 'Rank Sum';
+    else
+        return;  % No results to plot
+    end
+
+    figure('Name', ['FOOOF Parameters HFO - ' titleSuffix]);
+
+    subplot(1,2,1)
+    bar([mean(expIntraop), mean(expRCS)])
+    hold on
+    errorbar([1 2], [mean(expIntraop), mean(expRCS)], ...
+        [std(expIntraop)/sqrt(length(expIntraop)), ...
+         std(expRCS)/sqrt(length(expRCS))], 'k.')
+    set(gca, 'XTickLabel', {'Intraop', 'RCS'})
+    ylabel('Aperiodic Exponent')
+    title([subj ' Exponent (p=' sprintf('%.3f', pExp) ')'])
+
+    subplot(1,2,2)
+    bar([mean(offIntraop), mean(offRCS)])
+    hold on
+    errorbar([1 2], [mean(offIntraop), mean(offRCS)], ...
+        [std(offIntraop)/sqrt(length(offIntraop)), ...
+         std(offRCS)/sqrt(length(offRCS))], 'k.')
+    set(gca, 'XTickLabel', {'Intraop', 'RCS'})
+    ylabel('Aperiodic Offset')
+    title([subj ' Offset (p=' sprintf('%.3f', pOff) ')'])
+end
+
+%% Signed rank test for matching channels
+if signedRankTest
+    % Signed rank test for ECoG channels (paired test)
+    for index = 1:size(base_fre1RCScollapse.averagedBins,2)
+        [p,h,stats] = signrank(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index),base_fre1Intraop.averagedBins(indicesECOGintra,index));
+        statsResults.pECOG(index)=p;
+        statsResults.hECOG(index)=h;
+        statsResults.statsECOG(index) = stats;
+    end
+
+    % Rank sum test for LFP channels
+    for index = 1:size(base_fre1RCScollapse.averagedBins,2)
+        [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesLFPRCS,index),base_fre1Intraop.averagedBins(indicesLFPintra,index));
+        statsResults.pLFP(index)=p;
+        statsResults.hLFP(index)=h;
+        statsResults.statsLFP(index) = stats;
+    end
+end
+
+%% Rank sum test across channels
 if rankSumTest && ~isnan(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index))
 
     for index = 1:size(base_fre1RCS.averagedBins,2)

@@ -19,6 +19,7 @@ The codebase harmonizes channel naming conventions between the two systems, perf
 - **Bipolar Skip Rereferencing**: Matches RC+S recording montages
 - **Individual Channel Visualization**: Significance stars on each subplot for Bonferroni-corrected results
 - **HFO Analysis**: High-frequency oscillation analysis (250-350 Hz) in addition to standard bands
+- **FOOOF Spectral Parameterization**: FieldTrip native implementation for aperiodic (1/f) analysis
 
 ## Data Storage
 
@@ -60,7 +61,9 @@ Set these in your shell configuration (e.g., `.bashrc`, `.zshrc`) or MATLAB star
 1. **FieldTrip Toolbox** (required)
    - Expected location: `../fieldtrip/` (sibling directory)
    - Download: https://www.fieldtriptoolbox.org/
-   - Used for: Preprocessing, spectral analysis, trial segmentation
+   - Used for: Preprocessing, spectral analysis, trial segmentation, FOOOF parameterization
+   - **Must have Brainstorm support** for FOOOF (included in recent versions)
+   - Verify with: `ft_hastoolbox('brainstorm')`
 
 2. **Analysis-rcs-data Repository** (required)
    - Expected location: `../Analysis-rcs-data/` (sibling directory)
@@ -71,6 +74,10 @@ Set these in your shell configuration (e.g., `.bashrc`, `.zshrc`) or MATLAB star
    - Expected location: `../fieldtrip/external/brewermap/`
    - Used for: Color scheme generation
    - Usually included with FieldTrip
+
+4. **fooof_mat** (NO LONGER REQUIRED)
+   - Previous FOOOF wrapper implementation has been replaced
+   - Now uses FieldTrip's native FOOOF support via Brainstorm
 
 ### Installation
 
@@ -139,6 +146,7 @@ master_script_rcs_neuroomega
    - Filter to specified time windows
    - Handle multiple recording iterations
    - Convert to FieldTrip format with region prefixes
+   - **Preserve original device channel ordering** (undo alphabetical sorting from `unique()`)
    - Same spectral analysis as intraop
    - Output: `base_fre1RCSall` cell structure
 
@@ -169,6 +177,7 @@ Uses HFO-specific versions: `subjects_to_analyze_HFO.m`, `analyze_intraop_HFO.m`
 - Same naming with original contact notation appended ('+' character is automatically stripped)
 - Examples: `ECOGL10-8` (left ECoG, contacts 10-8), `LFPR2-0` (right LFP, contacts 2-0)
 - Raw channel names from device may include '+' but are cleaned during processing
+- **Original device channel ordering is preserved** using `unique()` indices to ensure labels match data rows
 
 ### Frequency Bands
 
@@ -195,6 +204,41 @@ Uses HFO-specific versions: `subjects_to_analyze_HFO.m`, `analyze_intraop_HFO.m`
 - Signed rank test (`signedRankTest = 0`)
 - Rank sum test (`rankSumTest = 0`)
 
+### FOOOF Spectral Parameterization
+
+**Purpose:**
+FOOOF (Fitting Oscillations & One-Over-F) separates aperiodic (1/f) noise from periodic oscillatory peaks in power spectra. This enables quantification of neural noise characteristics beyond traditional frequency band analysis.
+
+**Implementation:**
+- Uses FieldTrip's native FOOOF via Brainstorm (no external wrapper needed)
+- Runs on trial-averaged data after regular spectral analysis
+- Fits 1-50 Hz range with 'fixed' aperiodic mode (offset + exponent)
+- Automatically applied in all analysis scripts (intraop, RCS, HFO)
+
+**Output Parameters:**
+- **Exponent** (typically 1-3): Steepness of 1/f falloff
+  - Higher = steeper falloff = more neural noise
+  - Lower = flatter spectrum = less noise-dominated
+- **Offset**: Overall power level (log scale)
+- **R-squared**: Fit quality (>0.8 is good)
+- **Peak Parameters**: Center frequency, power, bandwidth for detected oscillations
+
+**Statistical Comparison:**
+- **Signed Rank Test** (if enabled): Paired comparison for matched channels
+- **Rank Sum Test** (if enabled): Unpaired comparison across all channels
+- Results plotted with p-values and error bars
+- Quality verification via `verify_fooof_results.m`
+
+**Data Structure:**
+```matlab
+% Intraoperative FOOOF
+base_fre1Intraop.fooofparams(chanIdx).aperiodic_params  % [offset, exponent]
+base_fre1Intraop.fooofparams(chanIdx).r_squared
+
+% RCS FOOOF (nested by session/iteration)
+base_fre1RCSall.fooofparams{sessionIdx}{iterIdx}(chanIdx).aperiodic_params
+```
+
 ## File Organization
 
 ```
@@ -203,12 +247,14 @@ rcs_code/
 ├── master_script_rcs_neuroomega_HFO.m      # HFO execution script
 ├── subjects_to_analyze.m                    # Data file configuration
 ├── subjects_to_analyze_HFO.m                # HFO configuration
-├── analyze_intraop.m                        # Intraop data processing
-├── analyze_intraop_HFO.m                    # HFO intraop processing
-├── analyze_rcs.m                            # RCS data processing
-├── analyze_rcs_HFO.m                        # HFO RCS processing
-├── compare_intraop_rcs.m                    # Statistical comparison
-├── compare_intraop_rcs_HFO.m                # HFO comparison
+├── analyze_intraop.m                        # Intraop data processing (with FOOOF)
+├── analyze_intraop_HFO.m                    # HFO intraop processing (with FOOOF)
+├── analyze_rcs.m                            # RCS data processing (with FOOOF)
+├── analyze_rcs_HFO.m                        # HFO RCS processing (with FOOOF)
+├── compare_intraop_rcs.m                    # Statistical comparison (with FOOOF tests)
+├── compare_intraop_rcs_HFO.m                # HFO comparison (with FOOOF tests)
+├── verify_fooof_results.m                   # FOOOF quality control diagnostic
+├── verify_channel_matching.m                # Channel naming diagnostic
 ├── setup_rcs.m                              # Environment setup
 ├── helpers/
 │   ├── stdshade.m                           # Mean ± SEM plotting (updated to plot SEM not SD)
@@ -281,6 +327,11 @@ subjResults.bonferroniThreshold
    - Index: `rcsOrder{subjNum}{sessionNum}` should return 'L' or 'R'
 2. Ensure RCS channel names have '+' character stripped (done automatically in `analyze_rcs.m` line 138)
 3. Verify hemisphere ordering matches actual data files
+4. **For unilateral data**: Ensure `sidesToUseCell{subjNum}` is set correctly:
+   - Use `'r'` for right-hemisphere-only data
+   - Use `'l'` for left-hemisphere-only data
+   - Use `'b'` for bilateral data (default)
+   - Example: `sidesToUseCell = {'b', 'r'}` for RCS02 (bilateral) and RCS03 (right only)
 
 ### Issue: Too many/few significance stars
 **Symptom:** Unexpected number of significant results
@@ -302,7 +353,65 @@ subjResults.bonferroniThreshold
 
 **Solution:** Fixed in `compare_intraop_rcs.m` lines 184 and 205. Significance plotting now guarded by `if rankSumTest || signedRankTest` checks.
 
-## Recent Updates (2025-12-28)
+## Recent Updates
+
+### Channel Order Preservation Fix (January 7, 2026)
+
+**Issue:** MATLAB's `unique()` function alphabetically sorts channel labels, but the original RCS device channel order needed to be preserved to ensure labels matched their corresponding data rows.
+
+**Fix:**
+- Updated `analyze_rcs.m` and `analyze_rcs_HFO.m` to use `labelsWithPrefix(inds)` instead of `labelsWithPrefix`
+- The `inds` output from `unique()` restores original (pre-sorted) channel ordering
+- Ensures channel labels always correspond to their data rows in the FieldTrip structure
+
+**Files Modified:**
+- `analyze_rcs.m`: Lines 144, 153 (channel label assignment)
+- `analyze_rcs_HFO.m`: Lines 121, 130 (channel label assignment)
+
+**Impact:**
+- Channel labels now correctly match their data rows
+- Original RCS device channel ordering is maintained
+- Robust handling of duplicate channels (selects first occurrence in original order)
+
+### Unilateral Data Support (January 7, 2026)
+
+**Issue:** Unilateral (single-hemisphere) intraoperative recordings always labeled as LEFT, causing channel matching failures for right-hemisphere-only subjects.
+
+**Fix:**
+- Added `sidesToUse` parameter logic to `analyze_intraop.m` and `analyze_intraop_HFO.m`
+- Channel labeling now respects `sidesToUseCell` configuration ('b', 'l', or 'r')
+- Fixed hemisphere detection to use `contains(label,'LFPL')` instead of `contains(label,'L')`
+
+**Files Modified:**
+- `analyze_intraop.m`: Channel labeling (lines 37-96), hemisphere detection (line 164)
+- `analyze_intraop_HFO.m`: Channel labeling (lines 42-101), hemisphere detection (line 169)
+
+**Verification:**
+- RCS02 (bilateral): 8 matched channel pairs, Bonferroni α = 0.00125
+- RCS03 (right only): 4 matched channel pairs, Bonferroni α = 0.00250
+
+### FOOOF Reimplementation (January 2026)
+
+**Major Update:** Replaced broken `fooof_mat` wrapper with FieldTrip's native FOOOF implementation
+
+**Changes:**
+- **Removed dependency**: `fooof_mat` no longer required
+- **Simplified implementation**: ~20 lines per script vs ~70 lines with broken wrapper
+- **FieldTrip integration**: Uses `cfg.output = 'fooof_aperiodic'` with Brainstorm backend
+- **Trial-averaged analysis**: FOOOF runs separately on averaged data
+- **New data structure**: Results in `.fooofparams` with `aperiodic_params` [offset, exponent]
+- **Statistical tests**: Both signed rank (paired) and rank sum (unpaired) for FOOOF parameters
+- **Quality control**: `verify_fooof_results.m` for R-squared and parameter range checking
+- **HFO scripts updated**: Both regular and HFO analysis have synchronized FOOOF
+
+**Files Modified:**
+- `setup_rcs.m`: Removed fooof_mat path
+- `analyze_intraop.m`, `analyze_rcs.m`: Added FieldTrip FOOOF
+- `analyze_intraop_HFO.m`, `analyze_rcs_HFO.m`: Added FieldTrip FOOOF
+- `compare_intraop_rcs.m`, `compare_intraop_rcs_HFO.m`: Added signed rank and rank sum FOOOF tests
+- `verify_fooof_results.m`: Updated for new `.fooofparams` structure
+
+### Channel Matching and Permutation Testing (December 2025)
 
 See [CHANGES_SUMMARY.md](CHANGES_SUMMARY.md) for detailed changelog including:
 

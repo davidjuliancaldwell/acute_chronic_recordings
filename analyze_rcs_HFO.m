@@ -118,7 +118,7 @@ dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
 
         if length(inds) == 4
 
-            dataRCS.label = labelsWithPrefix;
+            dataRCS.label = labelsWithPrefix(inds);
             dataRCS.trial = {[dataRCSCell{index}]};     % cell-array containing a data matrix for each
             dataRCS.time = {timeRCSCell{index}};       % cell-array containing a time axis for each
 
@@ -127,7 +127,7 @@ dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
             tempDataSub = tempData(inds,:);
             tempTime = timeRCSCell{index};
             tempTimeSub = tempTime(inds,:);
-            dataRCS.label=labelsWithPrefix;
+            dataRCS.label=labelsWithPrefix(inds);
             dataRCS.trial = {tempDataSub};
             dataRCS.time = {tempTimeSub};
 
@@ -214,6 +214,21 @@ dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
             base_fre1RCS.averagedBins(:,binIdx) = sum(base_fre1RCS.normalizedPow(:,indsInterest),2);
             base_fre1RCSall.averagedBins{jjj}{index}(:,binIdx) = sum(base_fre1RCS.normalizedPow(:,indsInterest),2);
         end
+
+        %% FOOOF Spectral Parameterization
+        cfgFooof = [];
+        cfgFooof.method = 'mtmfft';
+        cfgFooof.output = 'fooof_aperiodic';
+        cfgFooof.taper = 'hanning';
+        cfgFooof.foi = 1:0.5:50;
+        cfgFooof.keeptrials = 'no';
+        cfgFooof.fooof.freq_range = [1 50];
+        cfgFooof.fooof.aperiodic_mode = 'fixed';
+
+        base_fre1RCS_fooof = ft_freqanalysis(cfgFooof, dataPreProcOverlapRCS);
+        base_fre1RCSall.fooofparams{jjj}{index} = base_fre1RCS_fooof.fooofparams;
+
+        fprintf('RCS HFO FOOOF session %d iter %d complete.\n', jjj, index);
 
         %% plot power
         figure

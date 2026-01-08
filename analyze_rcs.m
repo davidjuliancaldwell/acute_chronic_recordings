@@ -141,7 +141,7 @@ for jjj = 1:length(pathDataRcs)
 
         if length(inds) == 4
 
-            dataRCS.label = labelsWithPrefix;
+            dataRCS.label = labelsWithPrefix(inds);
             dataRCS.trial = {[dataRCSCell{index}]};     % cell-array containing a data matrix for each
             dataRCS.time = {timeRCSCell{index}};       % cell-array containing a time axis for each
 
@@ -150,7 +150,7 @@ for jjj = 1:length(pathDataRcs)
             tempDataSub = tempData(inds,:);
             tempTime = timeRCSCell{index};
             tempTimeSub = tempTime(inds,:);
-            dataRCS.label=labelsWithPrefix;
+            dataRCS.label=labelsWithPrefix(inds);
             dataRCS.trial = {tempDataSub};
             dataRCS.time = {tempTimeSub};
 
@@ -241,6 +241,28 @@ for jjj = 1:length(pathDataRcs)
             base_fre1RCS.averagedBins(:,:,indexFreq) = sum(base_fre1RCS.normalizedPow(:,:,indsInterest),3);
             base_fre1RCSall.averagedBins{jjj}{index}(:,:,indexFreq) = sum(base_fre1RCS.normalizedPow(:,:,indsInterest),3);
         end
+
+        %% FOOOF Spectral Parameterization (using FieldTrip/Brainstorm)
+        cfgFooof = [];
+        cfgFooof.method = 'mtmfft';
+        cfgFooof.output = 'fooof_aperiodic';
+        cfgFooof.taper = 'hanning';
+        cfgFooof.foi = 1:0.5:50;
+        cfgFooof.keeptrials = 'no';
+        cfgFooof.fooof.freq_range = [1 50];
+        cfgFooof.fooof.peak_width_limits = [1 12];
+        cfgFooof.fooof.max_peaks = 6;
+        cfgFooof.fooof.min_peak_height = 0.1;
+        cfgFooof.fooof.aperiodic_mode = 'fixed';
+        cfgFooof.fooof.peak_threshold = 2.0;
+
+        base_fre1RCS_fooof = ft_freqanalysis(cfgFooof, dataPreProcOverlapRCS);
+
+        % Store in all-sessions structure
+        base_fre1RCSall.fooofparams{jjj}{index} = base_fre1RCS_fooof.fooofparams;
+        base_fre1RCSall.fooof_powspctrm{jjj}{index} = base_fre1RCS_fooof.powspctrm;
+
+        fprintf('RCS FOOOF session %d iter %d complete.\n', jjj, index);
 
         %% plot power
         chanInt = 1;

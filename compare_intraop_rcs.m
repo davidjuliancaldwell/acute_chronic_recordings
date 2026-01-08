@@ -42,13 +42,13 @@ if length(base_fre1RCSall.averagedBins) > 1
     end
 end
 
-indicesECOGRCS = find(contains(base_fre1RCScollapse.label,{'+8','+9','+10','+11','-8','-9','-10','-11'}));
-indicesLFPRCS = ones(length(base_fre1RCScollapse.label),1);
-indicesLFPRCS(indicesECOGRCS) = 0;
-indicesLFPRCS = find(indicesLFPRCS==1);
+% Use region prefix detection (consistent with how intraop channels are identified)
+% '+' characters are stripped in analyze_rcs.m, so use 'ECOG' prefix instead
+indicesECOGRCS = find(contains(base_fre1RCScollapse.label, 'ECOG'));
+indicesLFPRCS = find(contains(base_fre1RCScollapse.label, 'LFP'));
 
 % collapse across ECoG
-hobase_fre1Intraop_avg.averagedBins = squeeze(mean(base_fre1Intraop.averagedBins,1));
+base_fre1Intraop_avg.averagedBins = squeeze(mean(base_fre1Intraop.averagedBins,1));
 base_fre1Intraop_avg.normalizedPow = squeeze(mean(base_fre1Intraop.normalizedPow,1));
 %%
 % need to make sure that the order of the RCS being read in matches the
@@ -148,6 +148,151 @@ if permute_test
     fprintf('  Number of frequency bins: %d\n', size(statsResultsPerm.p,1));
     fprintf('  Total tests performed: %d\n', numTests);
     fprintf('  Bonferroni-corrected alpha: %.6f\n', statsResultsPerm.bonferroniThreshold);
+end
+
+%% FOOOF Parameter Comparison (Signed Rank - Paired)
+if signedRankTest && isfield(base_fre1Intraop, 'fooofparams') && isfield(base_fre1RCSall, 'fooofparams')
+    fprintf('\n--- FOOOF Parameter Comparison (Signed Rank) ---\n');
+
+    % Match channels between intraop and RCS by label for paired test
+    intraopExponents = [];
+    intraopOffsets = [];
+    rcsExponents = [];
+    rcsOffsets = [];
+    matchedChannels = {};
+
+    % Loop through RCS sessions and match with intraop
+    for rcsTrial = 1:length(base_fre1RCSall.fooofparams)
+        for iterIdx = 1:length(base_fre1RCSall.fooofparams{rcsTrial})
+            rcsParams = base_fre1RCSall.fooofparams{rcsTrial}{iterIdx};
+            rcsLabels = base_fre1RCSall.chans{rcsTrial}{iterIdx};
+
+            for rcsIdx = 1:length(rcsParams)
+                rcsLabel = rcsLabels{rcsIdx};
+
+                % Find matching intraop channel by label
+                intraopIdx = find(strcmp(base_fre1Intraop.label, rcsLabel));
+
+                if ~isempty(intraopIdx)
+                    % Found a match - collect both parameters for paired comparison
+                    rcsExponents(end+1) = rcsParams(rcsIdx).aperiodic_params(2);
+                    rcsOffsets(end+1) = rcsParams(rcsIdx).aperiodic_params(1);
+                    intraopExponents(end+1) = base_fre1Intraop.fooofparams(intraopIdx).aperiodic_params(2);
+                    intraopOffsets(end+1) = base_fre1Intraop.fooofparams(intraopIdx).aperiodic_params(1);
+                    matchedChannels{end+1} = rcsLabel;
+                end
+            end
+        end
+    end
+
+    fprintf('Matched %d channel pairs for FOOOF comparison\n', length(matchedChannels));
+
+    if length(matchedChannels) > 0
+        % Signed rank test for paired samples (matched channels)
+        [p_exp, ~] = signrank(intraopExponents, rcsExponents);
+        fprintf('Exponent: Intraop mean=%.3f, RCS mean=%.3f, p=%.4f\n', ...
+            mean(intraopExponents), mean(rcsExponents), p_exp);
+
+        [p_off, ~] = signrank(intraopOffsets, rcsOffsets);
+        fprintf('Offset: Intraop mean=%.3f, RCS mean=%.3f, p=%.4f\n', ...
+            mean(intraopOffsets), mean(rcsOffsets), p_off);
+
+        % Store results
+        statsResultsFooof.exponent_p = p_exp;
+        statsResultsFooof.offset_p = p_off;
+        statsResultsFooof.intraopExponents = intraopExponents;
+        statsResultsFooof.rcsExponents = rcsExponents;
+        statsResultsFooof.intraopOffsets = intraopOffsets;
+        statsResultsFooof.rcsOffsets = rcsOffsets;
+        statsResultsFooof.matchedChannels = matchedChannels;
+
+        % Create FOOOF Parameter Plots
+        figure('Name', 'FOOOF Parameters (Signed Rank)');
+
+        subplot(1,2,1)
+        bar([mean(intraopExponents), mean(rcsExponents)])
+        hold on
+        errorbar([1 2], [mean(intraopExponents), mean(rcsExponents)], ...
+            [std(intraopExponents)/sqrt(length(intraopExponents)), ...
+             std(rcsExponents)/sqrt(length(rcsExponents))], 'k.')
+        set(gca, 'XTickLabel', {'Intraop', 'RCS'})
+        ylabel('Aperiodic Exponent')
+        title([subj ' Exponent (p=' sprintf('%.3f', statsResultsFooof.exponent_p) ')'])
+
+        subplot(1,2,2)
+        bar([mean(intraopOffsets), mean(rcsOffsets)])
+        hold on
+        errorbar([1 2], [mean(intraopOffsets), mean(rcsOffsets)], ...
+            [std(intraopOffsets)/sqrt(length(intraopOffsets)), ...
+             std(rcsOffsets)/sqrt(length(rcsOffsets))], 'k.')
+        set(gca, 'XTickLabel', {'Intraop', 'RCS'})
+        ylabel('Aperiodic Offset')
+        title([subj ' Offset (p=' sprintf('%.3f', statsResultsFooof.offset_p) ')'])
+    end
+end
+
+%% FOOOF Parameter Comparison (Rank Sum - Unpaired)
+if rankSumTest && isfield(base_fre1Intraop, 'fooofparams') && isfield(base_fre1RCSall, 'fooofparams')
+    fprintf('\n--- FOOOF Parameter Comparison (Rank Sum - Unpaired) ---\n');
+
+    % Collect all channels without matching
+    allIntraopExponents = [];
+    allIntraopOffsets = [];
+    for chanIdx = 1:length(base_fre1Intraop.fooofparams)
+        allIntraopExponents(chanIdx) = base_fre1Intraop.fooofparams(chanIdx).aperiodic_params(2);
+        allIntraopOffsets(chanIdx) = base_fre1Intraop.fooofparams(chanIdx).aperiodic_params(1);
+    end
+
+    allRcsExponents = [];
+    allRcsOffsets = [];
+    for rcsTrial = 1:length(base_fre1RCSall.fooofparams)
+        for iterIdx = 1:length(base_fre1RCSall.fooofparams{rcsTrial})
+            params = base_fre1RCSall.fooofparams{rcsTrial}{iterIdx};
+            for chanIdx = 1:length(params)
+                allRcsExponents(end+1) = params(chanIdx).aperiodic_params(2);
+                allRcsOffsets(end+1) = params(chanIdx).aperiodic_params(1);
+            end
+        end
+    end
+
+    [p_exp_ranksum, ~] = ranksum(allIntraopExponents, allRcsExponents);
+    fprintf('Exponent: Intraop mean=%.3f, RCS mean=%.3f, p=%.4f\n', ...
+        mean(allIntraopExponents), mean(allRcsExponents), p_exp_ranksum);
+
+    [p_off_ranksum, ~] = ranksum(allIntraopOffsets, allRcsOffsets);
+    fprintf('Offset: Intraop mean=%.3f, RCS mean=%.3f, p=%.4f\n', ...
+        mean(allIntraopOffsets), mean(allRcsOffsets), p_off_ranksum);
+
+    % Store results
+    statsResultsFooof.exponent_p_ranksum = p_exp_ranksum;
+    statsResultsFooof.offset_p_ranksum = p_off_ranksum;
+    statsResultsFooof.intraopExponentsAll = allIntraopExponents;
+    statsResultsFooof.rcsExponentsAll = allRcsExponents;
+    statsResultsFooof.intraopOffsetsAll = allIntraopOffsets;
+    statsResultsFooof.rcsOffsetsAll = allRcsOffsets;
+
+    % Create FOOOF Parameter Plots for unpaired
+    figure('Name', 'FOOOF Parameters (Rank Sum)');
+
+    subplot(1,2,1)
+    bar([mean(allIntraopExponents), mean(allRcsExponents)])
+    hold on
+    errorbar([1 2], [mean(allIntraopExponents), mean(allRcsExponents)], ...
+        [std(allIntraopExponents)/sqrt(length(allIntraopExponents)), ...
+         std(allRcsExponents)/sqrt(length(allRcsExponents))], 'k.')
+    set(gca, 'XTickLabel', {'Intraop', 'RCS'})
+    ylabel('Aperiodic Exponent')
+    title([subj ' Exponent (p=' sprintf('%.3f', statsResultsFooof.exponent_p_ranksum) ')'])
+
+    subplot(1,2,2)
+    bar([mean(allIntraopOffsets), mean(allRcsOffsets)])
+    hold on
+    errorbar([1 2], [mean(allIntraopOffsets), mean(allRcsOffsets)], ...
+        [std(allIntraopOffsets)/sqrt(length(allIntraopOffsets)), ...
+         std(allRcsOffsets)/sqrt(length(allRcsOffsets))], 'k.')
+    set(gca, 'XTickLabel', {'Intraop', 'RCS'})
+    ylabel('Aperiodic Offset')
+    title([subj ' Offset (p=' sprintf('%.3f', statsResultsFooof.offset_p_ranksum) ')'])
 end
 
 if rankSumTest
