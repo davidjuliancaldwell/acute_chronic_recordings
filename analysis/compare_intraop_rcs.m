@@ -295,6 +295,137 @@ if rankSumTest && isfield(base_fre1Intraop, 'fooofparams') && isfield(base_fre1R
     title([subj ' Offset (p=' sprintf('%.3f', statsResultsFooof.offset_p_ranksum) ')'])
 end
 
+%% FOOOF Modeled Power Spectrum Plots (Per-Channel)
+if isfield(base_fre1Intraop, 'fooof_powspctrm') && isfield(base_fre1RCSall, 'fooof_powspctrm')
+
+    % Frequency vector for FOOOF
+    fooofFreq = base_fre1Intraop.fooof_freq;
+
+    % Determine subplot layout
+    numChans = length(base_fre1Intraop.label);
+    if numChans == 4
+        subplotRows = 2; subplotCols = 2;
+    elseif numChans == 8
+        subplotRows = 4; subplotCols = 2;
+    else
+        subplotRows = ceil(sqrt(numChans));
+        subplotCols = ceil(numChans/subplotRows);
+    end
+
+    figFooofSpectrum = figure('Name', [subj ' FOOOF Modeled Spectra']);
+
+    for plotIdx = 1:numChans
+        subplot(subplotRows, subplotCols, plotIdx)
+        chanLabel = base_fre1Intraop.label{plotIdx};
+
+        % Get intraop FOOOF spectrum and normalize to 100%
+        intraopSpectrum = base_fre1Intraop.fooof_powspctrm(plotIdx, :);
+        intraopSum = nansum(intraopSpectrum);
+        intraopNorm = 100 * intraopSpectrum / intraopSum;
+
+        % Find matching RCS channel
+        foundMatch = false;
+        for rcsTrial = 1:length(base_fre1RCSall.fooof_powspctrm)
+            for iterIdx = 1:length(base_fre1RCSall.fooof_powspctrm{rcsTrial})
+                rcsLabels = base_fre1RCSall.chans{rcsTrial}{iterIdx};
+                rcsIdx = find(strcmp(rcsLabels, chanLabel));
+
+                if ~isempty(rcsIdx)
+                    rcsSpectrum = base_fre1RCSall.fooof_powspctrm{rcsTrial}{iterIdx}(rcsIdx, :);
+                    rcsSum = nansum(rcsSpectrum);
+                    rcsNorm = 100 * rcsSpectrum / rcsSum;
+
+                    % Plot log of normalized power (data is in LINEAR scale)
+                    line1 = plot(fooofFreq, log10(rcsNorm), 'b-', 'LineWidth', 1.5);
+                    hold on
+                    line2 = plot(fooofFreq, log10(intraopNorm), 'r-', 'LineWidth', 1.5);
+                    grid on
+                    foundMatch = true;
+                    break;
+                end
+            end
+            if foundMatch, break; end
+        end
+
+        if plotIdx == 1
+            xlabel('Frequency (Hz)')
+            ylabel('Log_{10} Normalized Power (%)')
+        end
+        title(chanLabel)
+        set(gca, 'fontsize', 12)
+        if plotIdx == numChans && foundMatch
+            legend([line1, line2], {'RCS', 'Intraop'}, 'Location', 'best');
+        end
+    end
+
+    sgtitle([subj ' FOOOF Modeled Power Spectra (Normalized)'])
+
+    if saveFigure
+        tempFig = gcf;
+        tempFig.Position = [300 300 1200 800];
+        exportgraphics(tempFig, fullfile(folderFigures, [subj '_FOOOF_spectra.png']), 'Resolution', 600)
+        exportgraphics(tempFig, fullfile(folderFigures, [subj '_FOOOF_spectra.eps']))
+    end
+end
+
+%% FOOOF Exponent/Offset Connected Scatter Plots
+if exist('statsResultsFooof', 'var') && isfield(statsResultsFooof, 'matchedChannels')
+
+    matchedChannels = statsResultsFooof.matchedChannels;
+    numMatchedPairs = length(matchedChannels);
+
+    if numMatchedPairs > 0
+        % Color scheme for channel pairs
+        channelColors = brewermap(max(numMatchedPairs, 3), 'Set1');
+
+        figFooofScatter = figure('Name', [subj ' FOOOF Parameters']);
+
+        % Subplot 1: Exponent
+        subplot(1,2,1)
+        for pairIdx = 1:numMatchedPairs
+            x = [1, 2];
+            y = [statsResultsFooof.intraopExponents(pairIdx), ...
+                 statsResultsFooof.rcsExponents(pairIdx)];
+            plot(x, y, '-o', 'Color', channelColors(pairIdx,:), ...
+                 'LineWidth', 1.5, 'MarkerSize', 8, ...
+                 'MarkerFaceColor', channelColors(pairIdx,:));
+            hold on
+        end
+        xlim([0.5 2.5])
+        set(gca, 'XTick', [1 2], 'XTickLabel', {'Intraop', 'RCS'})
+        ylabel('Aperiodic Exponent')
+        title(['Exponent (p=' sprintf('%.3f', statsResultsFooof.exponent_p) ')'])
+        set(gca, 'fontsize', 14)
+
+        % Subplot 2: Offset
+        subplot(1,2,2)
+        for pairIdx = 1:numMatchedPairs
+            x = [1, 2];
+            y = [statsResultsFooof.intraopOffsets(pairIdx), ...
+                 statsResultsFooof.rcsOffsets(pairIdx)];
+            plot(x, y, '-o', 'Color', channelColors(pairIdx,:), ...
+                 'LineWidth', 1.5, 'MarkerSize', 8, ...
+                 'MarkerFaceColor', channelColors(pairIdx,:));
+            hold on
+        end
+        xlim([0.5 2.5])
+        set(gca, 'XTick', [1 2], 'XTickLabel', {'Intraop', 'RCS'})
+        ylabel('Aperiodic Offset')
+        title(['Offset (p=' sprintf('%.3f', statsResultsFooof.offset_p) ')'])
+        legend(matchedChannels, 'Location', 'best')
+        set(gca, 'fontsize', 14)
+
+        sgtitle([subj ' FOOOF Aperiodic Parameters by Channel'])
+
+        if saveFigure
+            tempFig = gcf;
+            tempFig.Position = [300 300 1000 500];
+            exportgraphics(tempFig, fullfile(folderFigures, [subj '_FOOOF_scatter.png']), 'Resolution', 600)
+            exportgraphics(tempFig, fullfile(folderFigures, [subj '_FOOOF_scatter.eps']))
+        end
+    end
+end
+
 if rankSumTest
     statsCell{subjNum} = statsResults;
 end

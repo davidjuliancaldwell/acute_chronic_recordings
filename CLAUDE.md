@@ -175,11 +175,11 @@ FOOOF (Fitting Oscillations & One-Over-F) separates the aperiodic (1/f) componen
 ```matlab
 cfgFooof = [];
 cfgFooof.method = 'mtmfft';
-cfgFooof.output = 'fooof_aperiodic';  % Can also use 'fooof' or 'fooof_peaks'
+cfgFooof.output = 'fooof_aperiodic';  % Get aperiodic (1/f) component only
 cfgFooof.taper = 'hanning';
-cfgFooof.foi = 1:0.5:50;              % 1-50 Hz for fitting
+cfgFooof.foi = 4:0.5:50;              % 4-50 Hz for fitting
 cfgFooof.keeptrials = 'no';           % REQUIRED for FOOOF
-cfgFooof.fooof.freq_range = [1 50];
+cfgFooof.fooof.freq_range = [4 50];
 cfgFooof.fooof.peak_width_limits = [1 12];
 cfgFooof.fooof.max_peaks = 6;
 cfgFooof.fooof.min_peak_height = 0.1;
@@ -187,7 +187,19 @@ cfgFooof.fooof.aperiodic_mode = 'fixed';  % offset + exponent model
 cfgFooof.fooof.peak_threshold = 2.0;
 
 base_fre1_fooof = ft_freqanalysis(cfgFooof, dataPreProcOverlap);
+
+% Store FOOOF parameters and aperiodic spectrum
+base_fre1Intraop.fooofparams = base_fre1_fooof.fooofparams;
+base_fre1Intraop.fooof_powspctrm = base_fre1_fooof.powspctrm;  % Aperiodic spectrum (LINEAR scale)
+base_fre1Intraop.fooof_freq = base_fre1_fooof.freq;
 ```
+
+**Output Modes:**
+- `'fooof'`: Full model (aperiodic + peaks combined)
+- `'fooof_aperiodic'`: Aperiodic (1/f) component only ← **Currently used**
+- `'fooof_peaks'`: Peak components with aperiodic removed
+
+**Important:** All FOOOF outputs are in **LINEAR scale** (power, not log10). Use `log10()` for visualization.
 
 **Data Structure:**
 ```matlab
@@ -245,6 +257,44 @@ Use `verify_fooof_results.m` to check:
 - Results stored separately in `.fooofparams` field
 - Comparison scripts automatically detect which test was run and plot accordingly
 
+**FOOOF Visualization (January 2026):**
+
+Two types of FOOOF summary plots are generated in comparison scripts:
+
+1. **FOOOF Modeled Power Spectrum Plots** (lines ~298-365 in `compare_intraop_rcs.m`):
+   - Individual subplots per matched channel pair (2x2 for 4 channels, 4x2 for 8 channels)
+   - Shows FOOOF aperiodic (1/f) component (blue = RCS, red = intraop)
+   - **Data flow:**
+     - `fooof_powspctrm` contains aperiodic fit in **LINEAR scale**
+     - Normalize: `norm = 100 * spectrum / nansum(spectrum)` (uses `nansum()` to handle NaN values)
+     - Plot: `log10(norm)` for log-scale visualization
+   - Y-axis: Log₁₀ normalized power (%), typically ranges -1 to 1
+   - Downward-sloping lines (steeper = larger exponent)
+   - Output files: `{subj}_FOOOF_spectra.png/.eps` (regular), `{subj}_FOOOF_spectra_HFO.png/.eps` (HFO)
+
+2. **Connected Scatter Plots for Exponent/Offset** (lines ~367-423 in `compare_intraop_rcs.m`):
+   - Side-by-side subplots (exponent left, offset right)
+   - Each matched channel pair shown as connected points (intraop → RCS)
+   - Color-coded by channel using brewermap 'Set1' palette
+   - P-values from signed rank test displayed in subplot titles
+   - Output files: `{subj}_FOOOF_scatter.png/.eps` (regular), `{subj}_FOOOF_scatter_HFO.png/.eps` (HFO)
+
+**Conditional Generation:**
+- Spectrum plots require `base_fre1Intraop.fooof_powspctrm` and `base_fre1RCSall.fooof_powspctrm`
+- Scatter plots require `statsResultsFooof.matchedChannels` (created when `signedRankTest = 1`)
+- Both respect `saveFigure` flag for export
+
+**Plotting Details:**
+```matlab
+% Data is in LINEAR scale from FieldTrip
+intraopSpectrum = base_fre1Intraop.fooof_powspctrm(chanIdx, :);
+% Normalize to 100% (using nansum to handle NaN values)
+intraopNorm = 100 * intraopSpectrum / nansum(intraopSpectrum);
+% Plot on log scale
+plot(freq, log10(intraopNorm), 'r-');
+ylabel('Log_{10} Normalized Power (%)');
+```
+
 ## Patient Configuration Files
 
 Located in `patient_config_files/RCS##/patient_config_file.m`. Currently minimal - mostly empty except for basic sampling rate extraction. Previously used for channel definitions but now largely unused.
@@ -280,6 +330,28 @@ Unilateral (8-channel) intraoperative data was always labeled as LEFT hemisphere
 - RCS02 (bilateral): 8 matched channel pairs ✓
 - RCS03 (unilateral right): 4 matched channel pairs ✓
 
+### HFO Scripts Unilateral Data Support (January 2026)
+
+**Problem:**
+HFO analysis scripts failed with "Unrecognized function or variable 'sidesToUse'" error because they were missing the unilateral data support added to regular scripts.
+
+**Solution:**
+- ✅ Added `sidesToUseCell` variable to `subjects_to_analyze_HFO.m` (lines 68-70)
+- ✅ Added `sidesToUse = sidesToUseCell{subjNum}` to `master_script_rcs_neuroomega_HFO.m` (line 49)
+- ✅ Added hemisphere filtering logic to `compare_intraop_rcs_HFO.m` (lines 3-22)
+- ✅ Fixed plotting in `analyze_intraop_HFO.m` to use `chanInt` variable and `squeeze(mean(...))` (lines 263-272)
+
+**Files Modified:**
+- `subjects_to_analyze_HFO.m`: Added `sidesToUseCell = {'b'}` for RCS06
+- `master_script_rcs_neuroomega_HFO.m`: Added `sidesToUse` variable extraction (line 49)
+- `compare_intraop_rcs_HFO.m`: Added hemisphere filtering (lines 3-22), matches regular script logic
+- `analyze_intraop_HFO.m`: Fixed plotting to use `chanInt = 7` and proper trial averaging (lines 263-272)
+
+**Result:**
+- HFO scripts now have full unilateral data support
+- Plotting uses flexible `chanInt` variable instead of hardcoded indices
+- Intraop HFO FOOOF completes successfully
+
 ### FOOOF Reimplementation (January 2026)
 
 **Completed:**
@@ -292,12 +364,40 @@ Unilateral (8-channel) intraoperative data was always labeled as LEFT hemisphere
 - ✅ Simplified implementation: ~20 lines per script vs ~70 lines with broken fooof_mat
 
 **Key Changes:**
-- FOOOF now uses `cfg.output = 'fooof_aperiodic'` with `cfg.keeptrials = 'no'`
+- FOOOF uses `cfg.output = 'fooof_aperiodic'` to get 1/f component only
+- Output is in **LINEAR scale** (not log), requires `log10()` for visualization
 - Results stored in `.fooofparams` field with structure: `fooofparams(chanIdx).aperiodic_params`
 - Aperiodic params order: `[offset, exponent]`
 - Signed rank test for matched channels (by label), rank sum for all channels
 - Both regular and HFO scripts have synchronized FOOOF implementation
 - Quality control via R-squared values and parameter range checking
+
+**FOOOF Visualization Added (January 8, 2026):**
+- ✅ Added normalized FOOOF power spectrum plots (per-channel subplots)
+- ✅ Added connected scatter plots showing exponent/offset trajectories for matched channel pairs
+- ✅ Power normalized to 100% of total in fit range (4-50 Hz) for fair comparison
+- ✅ Channel-specific color coding using brewermap 'Set1' palette
+- ✅ Automatic generation when FOOOF data available
+- ✅ **Fixed plotting (January 8, 2026):** Changed to `'fooof_aperiodic'` output mode and corrected LINEAR→log scale conversion
+- ✅ **Fixed NaN handling (January 8, 2026):** Changed `sum()` to `nansum()` in normalization to handle NaN values in FOOOF spectra
+
+**NaN Handling in FOOOF Plots:**
+When FOOOF fails to fit certain frequency bins, `fooof_powspctrm` can contain NaN values. Using `sum()` on an array with NaN values returns NaN, which propagates through the normalization calculation and prevents plots from displaying. The fix uses `nansum()` instead, which excludes NaN values from the sum, allowing the normalization to work correctly on the valid frequency bins.
+
+```matlab
+% Before (causes all-NaN normalized spectrum if any NaN present):
+intraopSum = sum(intraopSpectrum);
+intraopNorm = 100 * intraopSpectrum / intraopSum;
+
+% After (robust to NaN values):
+intraopSum = nansum(intraopSpectrum);
+intraopNorm = 100 * intraopSpectrum / intraopSum;
+```
+
+**Files Modified:**
+- `analyze_intraop.m`, `analyze_rcs.m`, `analyze_intraop_HFO.m`, `analyze_rcs_HFO.m`: Changed to `'fooof_aperiodic'` output
+- `compare_intraop_rcs.m`: Added ~128 lines of FOOOF visualization code (lines 298-365) with correct log scaling and NaN-robust normalization (lines 323, 335)
+- `compare_intraop_rcs_HFO.m`: Added ~128 lines of FOOOF visualization code (lines 229-289) with correct log scaling and NaN-robust normalization (lines 254, 266)
 
 ### Channel Order Preservation Fix (January 2026)
 
@@ -368,13 +468,19 @@ tempData(inds,:);  % Selects first occurrence of each unique channel in original
 
 ## File Organization
 
+**Root Directory:**
 - `master_script_*.m`: Top-level entry points
-- `subjects_to_analyze*.m`: Data file and parameter configuration
-- `analyze_*.m`: Data processing pipelines
-- `compare_*.m`: Statistical analysis and plotting
 - `setup_rcs.m`: Environment configuration
+
+**Subdirectories:**
+- `config/`: Subject configuration files (`subjects_to_analyze*.m`)
+- `analysis/`: Core analysis scripts (`analyze_*.m`, `compare_*.m`)
+- `helpers/`: Utility functions (`stdshade.m`, `permutationTest.m`, `permutest.m`)
+- `verification/`: Quality control scripts (`verify_fooof_results.m`, `verify_channel_matching.m`)
+- `tests/`: Development test scripts
+- `experimental/`: Exploratory/experimental scripts
+- `deprecated/`: Obsolete debugging scripts (kept for reference)
 - `patient_config_files/`: Per-subject configurations
-- `helpers/`: Utility functions
 
 ## Notes
 

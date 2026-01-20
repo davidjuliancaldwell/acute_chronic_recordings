@@ -24,7 +24,7 @@ for subjNum = 1:length(subjsToAnalyze)
     bipolarSkipReref = 1;
 
     % which statistics to do signedRank/rankSum are on group level
-    signedRankTest = 0;
+    signedRankTest = 1;
     rankSumTest = 0;
 
     %permutation vs kruskal (TO DO)

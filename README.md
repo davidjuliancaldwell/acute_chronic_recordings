@@ -212,7 +212,9 @@ FOOOF (Fitting Oscillations & One-Over-F) separates aperiodic (1/f) noise from p
 **Implementation:**
 - Uses FieldTrip's native FOOOF via Brainstorm (no external wrapper needed)
 - Runs on trial-averaged data after regular spectral analysis
-- Fits 1-50 Hz range with 'fixed' aperiodic mode (offset + exponent)
+- Fits 4-50 Hz range with 'fixed' aperiodic mode (offset + exponent)
+- Uses `'fooof_aperiodic'` output mode to extract only the 1/f component
+- **Output is in LINEAR scale** - use `log10()` for visualization
 - Automatically applied in all analysis scripts (intraop, RCS, HFO)
 
 **Output Parameters:**
@@ -222,6 +224,15 @@ FOOOF (Fitting Oscillations & One-Over-F) separates aperiodic (1/f) noise from p
 - **Offset**: Overall power level (log scale)
 - **R-squared**: Fit quality (>0.8 is good)
 - **Peak Parameters**: Center frequency, power, bandwidth for detected oscillations
+
+**Visualization:**
+1. **FOOOF Modeled Spectra** - Per-channel subplots showing aperiodic (1/f) component
+   - Blue = RCS, Red = Intraop
+   - Power normalized to 100% and plotted on log scale
+   - Downward-sloping lines (steeper = larger exponent)
+2. **Connected Scatter Plots** - Exponent and offset values for each matched channel pair
+   - Lines connect intraop → RCS values
+   - Color-coded by channel
 
 **Statistical Comparison:**
 - **Signed Rank Test** (if enabled): Paired comparison for matched channels
@@ -234,10 +245,36 @@ FOOOF (Fitting Oscillations & One-Over-F) separates aperiodic (1/f) noise from p
 % Intraoperative FOOOF
 base_fre1Intraop.fooofparams(chanIdx).aperiodic_params  % [offset, exponent]
 base_fre1Intraop.fooofparams(chanIdx).r_squared
+base_fre1Intraop.fooof_powspctrm                        % Aperiodic spectrum (LINEAR scale)
+base_fre1Intraop.fooof_freq                             % Frequency vector (4:0.5:50)
 
 % RCS FOOOF (nested by session/iteration)
 base_fre1RCSall.fooofparams{sessionIdx}{iterIdx}(chanIdx).aperiodic_params
+base_fre1RCSall.fooof_powspctrm{sessionIdx}{iterIdx}   % Modeled power spectrum
 ```
+
+**FOOOF Visualization Plots:**
+
+Two types of summary plots are automatically generated in comparison scripts:
+
+1. **FOOOF Modeled Power Spectrum Plots**:
+   - Individual subplots per matched channel pair (2x2 for 4 channels, 4x2 for 8 channels)
+   - Blue line = RCS, Red line = Intraop
+   - Power normalized to 100% of total in fit range (4-50 Hz)
+   - Shows log-scaled normalized power on y-axis
+   - Files: `{subj}_FOOOF_spectra.png/.eps` or `{subj}_FOOOF_spectra_HFO.png/.eps`
+
+2. **Connected Scatter Plots (Exponent/Offset)**:
+   - Side-by-side subplots showing exponent (left) and offset (right)
+   - Each matched channel pair connected by line (intraop → RCS)
+   - Color-coded by channel using distinct colors
+   - P-values from signed rank test in subplot titles
+   - Files: `{subj}_FOOOF_scatter.png/.eps` or `{subj}_FOOOF_scatter_HFO.png/.eps`
+
+**Requirements:**
+- Spectrum plots require FOOOF power spectrum data
+- Scatter plots require signed rank test enabled (`signedRankTest = 1`)
+- Both respect `saveFigure` flag
 
 ## File Organization
 
@@ -245,26 +282,45 @@ base_fre1RCSall.fooofparams{sessionIdx}{iterIdx}(chanIdx).aperiodic_params
 rcs_code/
 ├── master_script_rcs_neuroomega.m          # Main execution script
 ├── master_script_rcs_neuroomega_HFO.m      # HFO execution script
-├── subjects_to_analyze.m                    # Data file configuration
-├── subjects_to_analyze_HFO.m                # HFO configuration
-├── analyze_intraop.m                        # Intraop data processing (with FOOOF)
-├── analyze_intraop_HFO.m                    # HFO intraop processing (with FOOOF)
-├── analyze_rcs.m                            # RCS data processing (with FOOOF)
-├── analyze_rcs_HFO.m                        # HFO RCS processing (with FOOOF)
-├── compare_intraop_rcs.m                    # Statistical comparison (with FOOOF tests)
-├── compare_intraop_rcs_HFO.m                # HFO comparison (with FOOOF tests)
-├── verify_fooof_results.m                   # FOOOF quality control diagnostic
-├── verify_channel_matching.m                # Channel naming diagnostic
 ├── setup_rcs.m                              # Environment setup
-├── helpers/
-│   ├── stdshade.m                           # Mean ± SEM plotting (updated to plot SEM not SD)
+├── CLAUDE.md                                # AI assistant guidance
+├── progress.md                              # Development progress and changelog
+├── README.md                                # This file
+│
+├── config/                                  # Subject and data configuration
+│   ├── subjects_to_analyze.m                # Subject IDs, file paths, parameters
+│   └── subjects_to_analyze_HFO.m            # HFO-specific configuration
+│
+├── analysis/                                # Core analysis scripts
+│   ├── analyze_intraop.m                    # Intraop data processing (with FOOOF)
+│   ├── analyze_intraop_HFO.m                # HFO intraop processing (with FOOOF)
+│   ├── analyze_rcs.m                        # RCS data processing (with FOOOF)
+│   ├── analyze_rcs_HFO.m                    # HFO RCS processing (with FOOOF)
+│   ├── compare_intraop_rcs.m                # Statistical comparison (with FOOOF tests)
+│   └── compare_intraop_rcs_HFO.m            # HFO comparison (with FOOOF tests)
+│
+├── helpers/                                 # Utility functions
+│   ├── stdshade.m                           # Mean ± SEM plotting
 │   ├── permutationTest.m                    # Permutation test implementation
 │   └── permutest.m                          # Alternative permutation test
-├── patient_config_files/
-│   └── RCS##/patient_config_file.m          # Per-subject configs
-├── CLAUDE.md                                # AI assistant guidance
-├── CHANGES_SUMMARY.md                       # Detailed changelog
-└── README.md                                # This file
+│
+├── verification/                            # Quality control scripts
+│   ├── verify_fooof_results.m               # FOOOF output validation
+│   └── verify_channel_matching.m            # Channel naming verification
+│
+├── tests/                                   # Development test scripts
+│   ├── test_single_subject_fooof.m          # End-to-end FOOOF test
+│   └── test_fooof_plotting.m                # Plotting code tests
+│
+├── experimental/                            # Exploratory scripts
+│   ├── test_ft_crossfrequencyanalysis.m     # Cross-frequency coupling analysis
+│   └── exploreRCSgui.m                      # Interactive data exploration GUI
+│
+├── deprecated/                              # Obsolete debugging scripts
+│   └── (7 superseded debug scripts)
+│
+└── patient_config_files/                    # Per-subject configs
+    └── RCS##/patient_config_file.m
 ```
 
 ## Usage Examples
@@ -390,6 +446,22 @@ subjResults.bonferroniThreshold
 - RCS02 (bilateral): 8 matched channel pairs, Bonferroni α = 0.00125
 - RCS03 (right only): 4 matched channel pairs, Bonferroni α = 0.00250
 
+### HFO Scripts Unilateral Data Support (January 2026)
+
+**Issue:** HFO analysis scripts failed with "Unrecognized function or variable 'sidesToUse'" error.
+
+**Fix:**
+- Added `sidesToUseCell` to `subjects_to_analyze_HFO.m`
+- Added `sidesToUse` variable extraction to `master_script_rcs_neuroomega_HFO.m`
+- Added hemisphere filtering logic to `compare_intraop_rcs_HFO.m`
+- Fixed plotting in `analyze_intraop_HFO.m` to use `chanInt` variable and `squeeze(mean(...))`
+
+**Files Modified:**
+- `subjects_to_analyze_HFO.m`: Added `sidesToUseCell = {'b'}` (lines 68-70)
+- `master_script_rcs_neuroomega_HFO.m`: Added `sidesToUse = sidesToUseCell{subjNum}` (line 49)
+- `compare_intraop_rcs_HFO.m`: Added hemisphere filtering (lines 3-22)
+- `analyze_intraop_HFO.m`: Fixed plotting with `chanInt = 7` and proper trial averaging (lines 263-272)
+
 ### FOOOF Reimplementation (January 2026)
 
 **Major Update:** Replaced broken `fooof_mat` wrapper with FieldTrip's native FOOOF implementation
@@ -397,7 +469,8 @@ subjResults.bonferroniThreshold
 **Changes:**
 - **Removed dependency**: `fooof_mat` no longer required
 - **Simplified implementation**: ~20 lines per script vs ~70 lines with broken wrapper
-- **FieldTrip integration**: Uses `cfg.output = 'fooof_aperiodic'` with Brainstorm backend
+- **FieldTrip integration**: Uses `cfg.output = 'fooof_aperiodic'` with Brainstorm backend to extract 1/f component
+- **LINEAR scale output**: All FOOOF outputs are in linear power scale (use `log10()` for visualization)
 - **Trial-averaged analysis**: FOOOF runs separately on averaged data
 - **New data structure**: Results in `.fooofparams` with `aperiodic_params` [offset, exponent]
 - **Statistical tests**: Both signed rank (paired) and rank sum (unpaired) for FOOOF parameters
@@ -406,14 +479,22 @@ subjResults.bonferroniThreshold
 
 **Files Modified:**
 - `setup_rcs.m`: Removed fooof_mat path
-- `analyze_intraop.m`, `analyze_rcs.m`: Added FieldTrip FOOOF
-- `analyze_intraop_HFO.m`, `analyze_rcs_HFO.m`: Added FieldTrip FOOOF
+- `analyze_intraop.m`, `analyze_rcs.m`, `analyze_intraop_HFO.m`, `analyze_rcs_HFO.m`: Added FieldTrip FOOOF with `'fooof_aperiodic'` output
 - `compare_intraop_rcs.m`, `compare_intraop_rcs_HFO.m`: Added signed rank and rank sum FOOOF tests
 - `verify_fooof_results.m`: Updated for new `.fooofparams` structure
 
+**FOOOF Visualization Added (January 8, 2026):**
+- **New plots**: FOOOF aperiodic spectrum plots (per-channel) and connected scatter plots (exponent/offset trajectories)
+- **Data handling**: LINEAR scale data normalized to 100%, then converted to log scale via `log10()` for visualization
+- **Normalization**: Power normalized to 100% of total in fit range (4-50 Hz) for fair comparison
+- **Color coding**: Channel-specific colors using brewermap 'Set1' palette
+- **Automatic generation**: Plots created when FOOOF data available and `saveFigure = 1`
+- **Files modified**: `compare_intraop_rcs.m` (lines 298-365), `compare_intraop_rcs_HFO.m` (lines 229-289)
+- **Fix applied**: Corrected LINEAR→log scale conversion to properly display aperiodic spectra
+
 ### Channel Matching and Permutation Testing (December 2025)
 
-See [CHANGES_SUMMARY.md](CHANGES_SUMMARY.md) for detailed changelog including:
+See [progress.md](progress.md) for detailed changelog including:
 
 **Bug Fixes:**
 - Fixed `rcsOrder` cell array syntax in subject configuration files

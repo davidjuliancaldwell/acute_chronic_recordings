@@ -1,9 +1,199 @@
-# Summary of Changes: Channel Naming Harmonization and Permutation Testing
+# Progress: RCS Analysis Pipeline Development
 
 ## Overview
-This document summarizes all changes made to harmonize channel naming between RCS and intraoperative data structures, implement channel-by-channel permutation testing with Bonferroni correction, and critical bug fixes for proper channel matching.
+This document tracks development progress, changes, and bug fixes for the RCS intraoperative vs. clinic comparison analysis pipeline. It includes channel naming harmonization, permutation testing implementation, FOOOF spectral parameterization, and critical bug fixes.
 
-## Latest Updates (December 28, 2025)
+## Latest Updates (January 2026)
+
+### Repository Reorganization (January 20, 2026)
+
+**Goal:** Improve code organization by moving files into appropriate subdirectories.
+
+**New Folder Structure:**
+- `config/` - Subject configuration files (`subjects_to_analyze*.m`)
+- `analysis/` - Core analysis scripts (`analyze_*.m`, `compare_*.m`)
+- `verification/` - Quality control scripts (`verify_*.m`)
+- `tests/` - Development test scripts
+- `experimental/` - Exploratory/experimental scripts
+- `deprecated/` - Obsolete debugging scripts (kept for reference)
+
+**Files Moved:**
+- 2 config files → `config/`
+- 6 analysis scripts → `analysis/`
+- 2 verification scripts → `verification/`
+- 2 test scripts → `tests/`
+- 2 experimental scripts → `experimental/`
+- 7 obsolete debug scripts → `deprecated/`
+
+**Path Compatibility:** No changes needed to `setup_rcs.m` - uses `addpath(genpath(...))` which recursively adds all subdirectories.
+
+---
+
+### Unilateral Data Support (January 7, 2026)
+
+#### 1. **Added `sidesToUse` Parameter for Hemisphere Selection**
+**Files Modified:** `analyze_intraop.m`, `analyze_intraop_HFO.m`
+
+**Problem:** Unilateral (8-channel) intraoperative data was always labeled as LEFT hemisphere, causing channel matching failures for right-hemisphere-only subjects (e.g., RCS03).
+
+**Solution:**
+```matlab
+% Channel labeling now uses sidesToUse parameter
+if strcmp(sidesToUse,'b')
+    % Bilateral: channels 1-4 → LEFT, 5-8 → RIGHT
+elseif strcmp(sidesToUse,'l')
+    % Left only: all channels → LEFT
+elseif strcmp(sidesToUse,'r')
+    % Right only: all channels → RIGHT
+end
+```
+
+**Key lines:**
+- `analyze_intraop.m`: Lines 37-54 (LFP), 79-96 (ECoG)
+- `analyze_intraop_HFO.m`: Lines 42-59 (LFP), 84-101 (ECoG)
+
+---
+
+#### 2. **Fixed Hemisphere Detection in Bipolar Skip Rereferencing**
+**Files Modified:** `analyze_intraop.m` (line 164), `analyze_intraop_HFO.m` (line 169)
+
+**Problem:** Detection used `contains(label,'L')` which matched both 'LFPL' and 'LFPR'
+
+**Solution:**
+```matlab
+% BEFORE (incorrect):
+if contains(dataIntraop.label{1},'L')
+
+% AFTER (correct):
+if contains(dataIntraop.label{1},'LFPL') || contains(dataIntraop.label{1},'ECOGL')
+```
+
+---
+
+#### 3. **Channel Order Preservation Fix**
+**Files Modified:** `analyze_rcs.m` (lines 144, 153), `analyze_rcs_HFO.m` (lines 121, 130)
+
+**Problem:** MATLAB's `unique()` alphabetically sorts channel labels, breaking label-data correspondence
+
+**Solution:**
+```matlab
+% Use inds from unique() to restore original ordering
+[labels, inds] = unique(chansStruct{index});
+dataRCS.label = labelsWithPrefix(inds);  % Preserves original device order
+```
+
+---
+
+### HFO Scripts Unilateral Data Support (January 2026)
+
+#### 4. **Added Missing `sidesToUseCell` to HFO Configuration**
+**File Modified:** `subjects_to_analyze_HFO.m` (lines 68-70)
+
+**Problem:** HFO scripts failed with "Unrecognized function or variable 'sidesToUse'"
+
+**Solution:**
+```matlab
+sidesToUseCell = {
+    'b'    % RCS06 - bilateral
+};
+```
+
+---
+
+#### 5. **Added `sidesToUse` Variable to HFO Master Script**
+**File Modified:** `master_script_rcs_neuroomega_HFO.m` (line 49)
+
+**Solution:**
+```matlab
+sidesToUse = sidesToUseCell{subjNum};
+```
+
+---
+
+#### 6. **Added Hemisphere Filtering to HFO Comparison Script**
+**File Modified:** `compare_intraop_rcs_HFO.m` (lines 3-22)
+
+**Problem:** HFO comparison script didn't filter channels by hemisphere
+
+**Solution:**
+```matlab
+% Find all ECoG and LFP channels by hemisphere
+indicesECOGintraL = find(contains(base_fre1Intraop.label,'ECOGL'));
+indicesECOGintraR = find(contains(base_fre1Intraop.label,'ECOGR'));
+indicesLFPintraL = find(contains(base_fre1Intraop.label,'LFPL'));
+indicesLFPintraR = find(contains(base_fre1Intraop.label,'LFPR'));
+
+% Filter by hemisphere based on sidesToUse
+if strcmp(sidesToUse,'b')
+    indicesECOGintra = [indicesECOGintraL indicesECOGintraR];
+    indicesLFPintra = [indicesLFPintraL indicesLFPintraR];
+elseif strcmp(sidesToUse,'r')
+    indicesECOGintra = indicesECOGintraR;
+    indicesLFPintra = indicesLFPintraR;
+elseif strcmp(sidesToUse,'l')
+    indicesECOGintra = indicesECOGintraL;
+    indicesLFPintra = indicesLFPintraL;
+end
+```
+
+---
+
+#### 7. **Fixed HFO Plotting with `chanInt` Variable**
+**File Modified:** `analyze_intraop_HFO.m` (lines 263-272)
+
+**Problem:** Hardcoded channel index 7 and missing trial dimension handling
+
+**Solution:**
+```matlab
+% BEFORE (broken):
+plot(base_fre1Intraop.freq,log10(base_fre1Intraop.powspctrm(7,:)))
+
+% AFTER (fixed):
+chanInt = 7;
+plot(base_fre1Intraop.freq,log10(squeeze(mean(base_fre1Intraop.powspctrm(:,chanInt,:),1))))
+```
+
+---
+
+### FOOOF Reimplementation (January 2026)
+
+#### 8. **Replaced `fooof_mat` with FieldTrip Native FOOOF**
+**Files Modified:** All analysis scripts
+
+**Problem:** Previous `fooof_mat` wrapper was broken
+
+**Solution:** Uses FieldTrip's native FOOOF via Brainstorm
+```matlab
+cfgFooof = [];
+cfgFooof.method = 'mtmfft';
+cfgFooof.output = 'fooof_aperiodic';  % Get 1/f component only
+cfgFooof.fooof.freq_range = [4 50];
+cfgFooof.fooof.aperiodic_mode = 'fixed';
+base_fre1_fooof = ft_freqanalysis(cfgFooof, dataPreProcOverlap);
+```
+
+**Key notes:**
+- Output is in **LINEAR scale** (use `log10()` for visualization)
+- Results stored in `.fooofparams` field
+- Aperiodic params: `[offset, exponent]`
+
+---
+
+### Validation Results (January 2026)
+
+**Regular Analysis:**
+- RCS02 (bilateral): 8 matched channel pairs ✓
+- RCS03 (right only): 4 matched channel pairs ✓
+- Bonferroni correction applied correctly
+
+**HFO Analysis:**
+- sidesToUse error: FIXED ✓
+- Plotting error: FIXED ✓
+- Intraop HFO FOOOF completes successfully ✓
+
+---
+
+## Previous Updates (December 28, 2025)
 
 ### Bug Fixes
 
@@ -420,33 +610,46 @@ Same naming convention with original contact notation appended:
 
 ### Regular Scripts
 - [x] `analyze_intraop.m`: Channel numbering updated (0-3, 8-11)
+- [x] `analyze_intraop.m`: sidesToUse parameter for hemisphere selection (Jan 7, 2026)
+- [x] `analyze_intraop.m`: Hemisphere detection fixed to use 'LFPL'/'ECOGL' (Jan 7, 2026)
 - [x] `analyze_rcs.m`: Region prefixes added
 - [x] `analyze_rcs.m`: '+' character stripping added (Dec 28, 2025)
+- [x] `analyze_rcs.m`: Channel order preservation with unique() inds (Jan 7, 2026)
 - [x] `subjects_to_analyze.m`: rcsOrder variable added
 - [x] `subjects_to_analyze.m`: rcsOrder syntax fixed (Dec 28, 2025)
+- [x] `subjects_to_analyze.m`: sidesToUseCell for hemisphere configuration (Jan 7, 2026)
 - [x] `compare_intraop_rcs.m`: Permutation testing implemented
 - [x] `compare_intraop_rcs.m`: Channel matching added to all plots
 - [x] `compare_intraop_rcs.m`: Significance stars added
 - [x] `compare_intraop_rcs.m`: Significance plotting guards added (Dec 28, 2025)
 - [x] `compare_intraop_rcs.m`: stdshade calls updated with 3D indexing (Dec 28, 2025)
+- [x] `compare_intraop_rcs.m`: FOOOF visualization plots added (Jan 2026)
 - [x] `master_script_rcs_neuroomega.m`: Comments updated
+- [x] `master_script_rcs_neuroomega.m`: sidesToUse variable extraction (Jan 7, 2026)
 - [x] `helpers/stdshade.m`: Updated to plot SEM not SD (Dec 28, 2025)
 
 ### HFO Scripts
 - [x] `analyze_intraop_HFO.m`: Channel numbering updated
+- [x] `analyze_intraop_HFO.m`: sidesToUse parameter for hemisphere selection (Jan 7, 2026)
+- [x] `analyze_intraop_HFO.m`: Hemisphere detection fixed to use 'LFPL'/'ECOGL' (Jan 7, 2026)
+- [x] `analyze_intraop_HFO.m`: chanInt variable and squeeze(mean()) for plotting (Jan 2026)
 - [x] `analyze_rcs_HFO.m`: Region prefixes added
 - [x] `analyze_rcs_HFO.m`: '+' character stripping added (Dec 28, 2025)
 - [x] `analyze_rcs_HFO.m`: Outer jjj loop added (Dec 28, 2025)
 - [x] `analyze_rcs_HFO.m`: rcsOrder indexing fixed to {jjj} (Dec 28, 2025)
 - [x] `analyze_rcs_HFO.m`: Loop variable renamed (binIdx) (Dec 28, 2025)
+- [x] `analyze_rcs_HFO.m`: Channel order preservation with unique() inds (Jan 7, 2026)
 - [x] `subjects_to_analyze_HFO.m`: rcsOrder variable added
 - [x] `subjects_to_analyze_HFO.m`: rcsOrder syntax fixed (Dec 28, 2025)
 - [x] `subjects_to_analyze_HFO.m`: rcsFiles nested structure (Dec 28, 2025)
+- [x] `subjects_to_analyze_HFO.m`: sidesToUseCell added (Jan 2026)
 - [x] `compare_intraop_rcs_HFO.m`: Permutation testing implemented
 - [x] `compare_intraop_rcs_HFO.m`: Channel matching added to plots
 - [x] `compare_intraop_rcs_HFO.m`: Significance stars added
 - [x] `compare_intraop_rcs_HFO.m`: stdshade calls updated with 3D indexing (Dec 28, 2025)
+- [x] `compare_intraop_rcs_HFO.m`: Hemisphere filtering logic added (Jan 2026)
 - [x] `master_script_rcs_neuroomega_HFO.m`: Flags and comments added
+- [x] `master_script_rcs_neuroomega_HFO.m`: sidesToUse variable extraction (Jan 2026)
 
 ---
 
@@ -551,7 +754,7 @@ Same naming convention with original contact notation appended:
 - `helpers/stdshade.m` - Changed from SD to SEM plotting
 - `README.md` - Updated with bug fixes and troubleshooting
 - `CLAUDE.md` - Updated with bug fixes, stdshade documentation, and detailed troubleshooting
-- `CHANGES_SUMMARY.md` - Documented all changes (this file)
+- `progress.md` - Documented all changes (this file)
 
 **Testing Status:** All bug fixes validated and documented. Channel matching now works correctly for both regular and HFO analysis pipelines.
 

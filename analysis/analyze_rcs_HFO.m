@@ -218,15 +218,30 @@ dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
         %% FOOOF Spectral Parameterization
         cfgFooof = [];
         cfgFooof.method = 'mtmfft';
-        cfgFooof.output = 'fooof_aperiodic';
+        cfgFooof.output = 'fooof_aperiodic';  % Get aperiodic (1/f) component only
         cfgFooof.taper = 'hanning';
-        cfgFooof.foi = 1:0.5:50;
+        cfgFooof.foi = 4:0.5:50;
         cfgFooof.keeptrials = 'no';
-        cfgFooof.fooof.freq_range = [1 50];
+        cfgFooof.fooof.freq_range = [4 50];
+        cfgFooof.fooof.peak_width_limits = [1 12];
+        cfgFooof.fooof.max_peaks = 6;
+        cfgFooof.fooof.min_peak_height = 0.1;
         cfgFooof.fooof.aperiodic_mode = 'fixed';
+        cfgFooof.fooof.peak_threshold = 2.0;
 
         base_fre1RCS_fooof = ft_freqanalysis(cfgFooof, dataPreProcOverlapRCS);
+
+        % Store FOOOF parameters and aperiodic model spectrum
         base_fre1RCSall.fooofparams{jjj}{index} = base_fre1RCS_fooof.fooofparams;
+        % Try powspctrm first - it should contain the FOOOF model
+        if isfield(base_fre1RCS_fooof, 'powspctrm')
+            base_fre1RCSall.fooof_powspctrm{jjj}{index} = base_fre1RCS_fooof.powspctrm;
+        elseif isfield(base_fre1RCS_fooof, 'fooofapcfit')
+            base_fre1RCSall.fooof_powspctrm{jjj}{index} = base_fre1RCS_fooof.fooofapcfit;
+        else
+            warning('No FOOOF power spectrum field found for session %d iter %d', jjj, index);
+            base_fre1RCSall.fooof_powspctrm{jjj}{index} = [];
+        end
 
         fprintf('RCS HFO FOOOF session %d iter %d complete.\n', jjj, index);
 

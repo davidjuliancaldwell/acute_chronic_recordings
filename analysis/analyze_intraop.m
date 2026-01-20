@@ -1,8 +1,3 @@
-%%'Coupling between Beta and High-Frequency Activity in the
-%Human Subthalamic Nucleus May Be a Pathophysiological
-%Mechanism in Parkinson's Disease'
-
-
 %% load intraop data
 dataFile = load(pathDataIntraOp);
 
@@ -102,6 +97,7 @@ if includeECOG
     end
 end
 
+
 dataCellIntraop{1} = dataMatrixIntraop;
 timeCellIntraop{1} = timeMatrixIntraop;
 
@@ -144,7 +140,6 @@ elseif strcmp(rerefChoice,'bipolarSkipReref') & length(dataIntraop.label)==16
         'ECOGL10-8','ECOGL11-9',...
         'ECOGR10-8','ECOGR11-9',
         };
-
     bipolarSkip_montage.tra       = [
         -1 0 +1  0  0  0  0  0  0  0  0  0  0  0  0  0
         0 -1  0 +1  0  0  0  0  0  0  0  0  0  0  0  0
@@ -189,10 +184,9 @@ elseif strcmp(rerefChoice,'bipolarSkipReref') & length(dataIntraop.label)==8
     cfgIntraop.montage = bipolarSkip_montage;
     dataPreProcIntraop = ft_preprocessing(cfgIntraop,dataIntraop);
 end
-
 %%
 cfgIntraop = [];
-cfgIntraop.resamplefs = 1000;     %frequency at which the data will be resampled (default = 256 Hz)
+cfgIntraop.resamplefs = 250;     %frequency at which the data will be resampled (default = 256 Hz)
 [dataPreProcIntraop] = ft_resampledata(cfgIntraop, dataPreProcIntraop);
 %% power spectrum
 cfg1Intraop = [];
@@ -224,30 +218,32 @@ cfg2Intraop.channel = 'all';
 cfg2Intraop.method= 'mtmfft';
 cfg2Intraop.taper = 'hanning';
 cfg2Intraop.keeptrials='yes'; % put this to yes if want individual trials returned vs. average
-cfg2Intraop.foi = [0.5:1:500];
+cfg2Intraop.foi = [0.5:1:125];
 base_fre1Intraop = ft_freqanalysis(cfg2Intraop,dataPreProcOverlapIntraop);
 
 % get mean power
-base_fre1Intraop.totalPower = sum(base_fre1Intraop.powspctrm,2);
-base_fre1Intraop.normalizedPow = 100*base_fre1Intraop.powspctrm./repmat(base_fre1Intraop.totalPower,1,size(base_fre1Intraop.powspctrm,2));
+base_fre1Intraop.totalPower = squeeze(sum(base_fre1Intraop.powspctrm,3));
+base_fre1Intraop.normalizedPow = 100*base_fre1Intraop.powspctrm./repmat(base_fre1Intraop.totalPower,1,1,size(base_fre1Intraop.powspctrm,3));
 
 % average across bins
 %freqEdges = [4 8;8 12; 13 20;20 30;50 200;13 30];
-freqEdges = [4 8;8 12; 13 20;20 30;50 125;250 350];
+freqEdges = [4 8;8 12; 13 20;20 30;50 125];
 %theta (4–8Hz),alpha(8–12Hz),lowbeta(13–20Hz), highbeta(20–30Hz),beta(13–30Hz),broadbandgamma(50–200Hz),
+base_fre1Intraop.averagedBins = zeros(size(base_fre1Intraop.totalPower,1),size(base_fre1Intraop.totalPower,2),size(freqEdges,1));
 for index = 1:size(freqEdges,1)
     indsInterest = (base_fre1Intraop.freq <= freqEdges(index,2)) & (base_fre1Intraop.freq > freqEdges(index,1));
-    base_fre1Intraop.averagedBins(:,index) = sum(base_fre1Intraop.normalizedPow(:,indsInterest),2);
+    base_fre1Intraop.averagedBins(:,:,index) = sum(base_fre1Intraop.normalizedPow(:,:,indsInterest),3);
 end
 
 %% FOOOF Spectral Parameterization (using FieldTrip/Brainstorm)
+% FOOOF requires trial-averaged data, so run separately
 cfgFooof = [];
 cfgFooof.method = 'mtmfft';
-cfgFooof.output = 'fooof_aperiodic';
+cfgFooof.output = 'fooof_aperiodic';  % Get aperiodic (1/f) component only
 cfgFooof.taper = 'hanning';
-cfgFooof.foi = 1:0.5:50;
-cfgFooof.keeptrials = 'no';
-cfgFooof.fooof.freq_range = [1 50];
+cfgFooof.foi = 4:0.5:50;  % 4-50 Hz for FOOOF fitting
+cfgFooof.keeptrials = 'no';  % Required for FOOOF
+cfgFooof.fooof.freq_range = [4 50];
 cfgFooof.fooof.peak_width_limits = [1 12];
 cfgFooof.fooof.max_peaks = 6;
 cfgFooof.fooof.min_peak_height = 0.1;
@@ -255,12 +251,24 @@ cfgFooof.fooof.aperiodic_mode = 'fixed';
 cfgFooof.fooof.peak_threshold = 2.0;
 
 base_fre1Intraop_fooof = ft_freqanalysis(cfgFooof, dataPreProcOverlapIntraop);
-base_fre1Intraop.fooofparams = base_fre1Intraop_fooof.fooofparams;
 
-fprintf('Intraop HFO FOOOF complete.\n');
+% Store FOOOF parameters and aperiodic model spectrum
+base_fre1Intraop.fooofparams = base_fre1Intraop_fooof.fooofparams;
+% Try powspctrm first - it should contain the FOOOF model
+if isfield(base_fre1Intraop_fooof, 'powspctrm')
+    base_fre1Intraop.fooof_powspctrm = base_fre1Intraop_fooof.powspctrm;
+elseif isfield(base_fre1Intraop_fooof, 'fooofapcfit')
+    base_fre1Intraop.fooof_powspctrm = base_fre1Intraop_fooof.fooofapcfit;
+else
+    warning('No FOOOF power spectrum field found');
+    base_fre1Intraop.fooof_powspctrm = [];
+end
+base_fre1Intraop.fooof_freq = base_fre1Intraop_fooof.freq;
+
+fprintf('Intraop FOOOF complete. Channels processed: %d\n', length(base_fre1Intraop.fooofparams));
 
 %% plot power
-chanInt = 7;
+chanInt = 1;
 
 figure
 plot(base_fre1Intraop.freq,log10(squeeze(mean(base_fre1Intraop.powspctrm(:,chanInt,:),1))))
@@ -273,37 +281,11 @@ plot(base_fre1Intraop.freq,log10(squeeze(mean(base_fre1Intraop.normalizedPow(:,c
 xlabel('Frequency (Hz)')
 ylabel('Log Percent of Total Power')
 title([subject ' Intraoperative Neuroomega PSD'])
-%%
+
 figure
-plot(base_fre1Intraop.averagedBins')
+plot(squeeze(mean(base_fre1Intraop.averagedBins,1))')
 xlabel('Frequency bins')
 ylabel('Percent of Total Power Across Bin Intraoperative Neuroomega')
-
-%% working on phase amplitude coupling
-
-cfgCrossFreq =[];
-cfgCrossFreq.method = 'mi';
-cfgCrossFreq.keeptrials = 'yes';
-cfgCrossFreq.freqlow = [12 30];
-cfgCrossFreq.freqhigh = [250 350];
-
-%crossfreq = ft_crossfrequencyanalysis(cfgCrossFreq,base_fre1Intraop);
-
-% Use as
-%   crossfreq = ft_crossfrequencyanalysis(cfg, freqlo, freqhi)
-% where freq is frequency decomposed data structure as obtained from FT_FREQANALYSIS
-% and cfg is a configuration structure that should contain
-%
-%   cfg.freqlow     scalar or vector, selection of frequencies for the low frequency data
-%   cfg.freqhigh    scalar or vector, selection of frequencies for the high frequency data
-%   cfg.chanlow     selection of channels for the low frequency, see FT_CHANNELSELECTION
-%   cfg.chanhigh    selection of channels for the high frequency, see FT_CHANNELSELECTION
-%   cfg.method      'plv' - phase locking value
-%                   'mvl' - mean vector length
-%                   'mi'  - modulaiton index
-%   cfg.keeptrials  string, can be 'yes' or 'no'
-
-
 
 
 % think about normalized power across whole contact? so it's % of power
