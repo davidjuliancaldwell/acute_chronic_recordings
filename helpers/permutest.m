@@ -6,7 +6,7 @@ function [clusters, p_values, t_sums, permutation_distribution ] = permutest( tr
 % above-threshold data points. 
 % See: Maris, E., & Oostenveld, R. (2007). Nonparametric statistical 
 % testing of EEG-and MEG-data. Journal of Neuroscience Methods, 164(1), 
-% 177–190. https://doi.org/10.1016/j.jneumeth.2007.03.024
+% 177ï¿½190. https://doi.org/10.1016/j.jneumeth.2007.03.024
 % 
 % Important notes: 
 % * Make sure you understand whether you should be using a test of
@@ -343,8 +343,14 @@ end
 % return regular arrays if only one cluster is requested
 t_sums = tSumPrimary;
 if num_clusters == 1
-    clusters = clusters{1};
-    permutation_distribution = permutation_distribution{1};
+    % Bug #31 fix: Check if variables are cell arrays before cell indexing
+    if iscell(clusters)
+        clusters = clusters{1};
+    end
+    if iscell(permutation_distribution)
+        permutation_distribution = permutation_distribution{1};
+    end
+    % If permutation_distribution is already numeric, leave it as is
 end
 
 end

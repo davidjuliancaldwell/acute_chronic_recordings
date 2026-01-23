@@ -1,12 +1,14 @@
 function [lineOut, fillOut] = stdshade(amatrix,alpha,acolor,F,smth)
+% Bug #44 fix: Updated documentation to reflect SEM (not STD) calculation
 % usage: stdshading(amatrix,alpha,acolor,F,smth)
-% plot mean and sem/std coming from a matrix of data, at which each row is an
-% observation. sem/std is shown as shading.
-% - acolor defines the used color (default is red) 
+% plot mean and SEM (standard error of mean) coming from a matrix of data,
+% at which each row is an observation. SEM is shown as shading.
+% - acolor defines the used color (default is red)
 % - F assignes the used x axis (default is steps of 1).
 % - alpha defines transparency of the shading (default is no shading and black mean line)
 % - smth defines the smoothing factor (default is no smooth)
 % smusall 2010/4/23
+% Modified: SEM calculation, not STD
 
 if exist('acolor','var')==0 || isempty(acolor)
     acolor='r'; 
@@ -29,7 +31,8 @@ if smth > 1
     amean = boxFilter(nanmean(amatrix,1),smth); %use boxfilter to smooth data
 end
 %astd = nanstd(amatrix,[],1); % to get std shading
- astd = nanstd(amatrix,[],1)/sqrt(size(amatrix,1)); % to get sem shading
+% Bug #34 fix: Protect against division by zero
+astd = nanstd(amatrix,[],1)/sqrt(max(1, size(amatrix,1))); % to get sem shading
 
 if exist('alpha','var')==0 || isempty(alpha) 
     fillOut = fill([F fliplr(F)],[amean+astd fliplr(amean-astd)],acolor,'linestyle','none');

@@ -73,7 +73,8 @@ if permute_test
 
         fprintf('  Session %d: Processing...\n', rcsTrial);
         samps_rcs_cell = cell2mat(base_fre1RCSall.averagedBins{rcsTrial});
-        rcsLabels = base_fre1RCSall.chans{rcsTrial}{:};
+        % Bug #22 fix: Wrap {:} expansion to properly concatenate iterations
+        rcsLabels = [base_fre1RCSall.chans{rcsTrial}{:}];
         fprintf('    Found %d channels, data dimensions: [%s]\n', length(rcsLabels), num2str(size(samps_rcs_cell)));
 
         % For each RCS channel, find matching intraop channel by label
@@ -121,10 +122,19 @@ if signedRankTest && isfield(base_fre1Intraop, 'fooofparams') && isfield(base_fr
     matchedChannels = {};
 
     % Loop through RCS sessions and match with intraop
-    for rcsTrial = 1:length(base_fre1RCSall.fooofparams)
-        for iterIdx = 1:length(base_fre1RCSall.fooofparams{rcsTrial})
-            rcsParams = base_fre1RCSall.fooofparams{rcsTrial}{iterIdx};
-            rcsLabels = base_fre1RCSall.chans{rcsTrial}{iterIdx};
+    % Bug #30 fix: Add FOOOF field check
+    if ~isfield(base_fre1RCSall, 'fooofparams') || ~isfield(base_fre1RCSall, 'chans')
+        warning('FOOOF parameters or channel labels not found in RCS data');
+    else
+        for rcsTrial = 1:length(base_fre1RCSall.fooofparams)
+            % Bug #30 fix: Check if cell exists and is not empty
+            if isempty(base_fre1RCSall.fooofparams{rcsTrial}) || isempty(base_fre1RCSall.chans{rcsTrial})
+                continue;
+            end
+
+            for iterIdx = 1:length(base_fre1RCSall.fooofparams{rcsTrial})
+                rcsParams = base_fre1RCSall.fooofparams{rcsTrial}{iterIdx};
+                rcsLabels = base_fre1RCSall.chans{rcsTrial}{iterIdx};
 
             for rcsIdx = 1:length(rcsParams)
                 rcsLabel = rcsLabels{rcsIdx};
@@ -141,6 +151,7 @@ if signedRankTest && isfield(base_fre1Intraop, 'fooofparams') && isfield(base_fr
                     matchedChannels{end+1} = rcsLabel;
                 end
             end
+        end
         end
     end
 
@@ -418,6 +429,14 @@ if exist('statsResultsFooof', 'var') && isfield(statsResultsFooof, 'matchedChann
     end
 end
 
+%% Bug #26 fix: Average intraop data across trials for comparison with RCS
+% RCS data in base_fre1RCScollapse is already trial-averaged (see line 29)
+% Intraop data base_fre1Intraop.averagedBins is 3D (trials × channels × freqBins)
+% Create trial-averaged version to match RCS format
+base_fre1Intraop_avg.averagedBins = squeeze(mean(base_fre1Intraop.averagedBins,1));
+base_fre1Intraop_avg.normalizedPow = squeeze(mean(base_fre1Intraop.normalizedPow,1));
+base_fre1Intraop_avg.label = base_fre1Intraop.label;
+
 %% Signed rank test for matching channels (match by label first)
 if signedRankTest
     fprintf('Running signed rank test with label-matched channels...\n');
@@ -428,7 +447,7 @@ if signedRankTest
     matchedECOGIndicesIntra = [];
 
     for i = 1:length(rcsECOGLabels)
-        matchIdx = find(strcmp(base_fre1Intraop.label, rcsECOGLabels{i}));
+        matchIdx = find(strcmp(base_fre1Intraop_avg.label, rcsECOGLabels{i}));
         if ~isempty(matchIdx)
             matchedECOGIndicesRCS(end+1) = indicesECOGRCS(i);
             matchedECOGIndicesIntra(end+1) = matchIdx;
@@ -441,7 +460,7 @@ if signedRankTest
     matchedLFPIndicesIntra = [];
 
     for i = 1:length(rcsLFPLabels)
-        matchIdx = find(strcmp(base_fre1Intraop.label, rcsLFPLabels{i}));
+        matchIdx = find(strcmp(base_fre1Intraop_avg.label, rcsLFPLabels{i}));
         if ~isempty(matchIdx)
             matchedLFPIndicesRCS(end+1) = indicesLFPRCS(i);
             matchedLFPIndicesIntra(end+1) = matchIdx;
@@ -454,7 +473,7 @@ if signedRankTest
     if ~isempty(matchedECOGIndicesRCS)
         for index = 1:size(base_fre1RCScollapse.averagedBins,2)
             [p,h,stats] = signrank(base_fre1RCScollapse.averagedBins(matchedECOGIndicesRCS,index), ...
-                                    base_fre1Intraop.averagedBins(matchedECOGIndicesIntra,index));
+                                    base_fre1Intraop_avg.averagedBins(matchedECOGIndicesIntra,index));
             statsResults.pECOG(index)=p;
             statsResults.hECOG(index)=h;
             statsResults.statsECOG(index) = stats;
@@ -467,7 +486,7 @@ if signedRankTest
     if ~isempty(matchedLFPIndicesRCS)
         for index = 1:size(base_fre1RCScollapse.averagedBins,2)
             [p,h,stats] = signrank(base_fre1RCScollapse.averagedBins(matchedLFPIndicesRCS,index), ...
-                                    base_fre1Intraop.averagedBins(matchedLFPIndicesIntra,index));
+                                    base_fre1Intraop_avg.averagedBins(matchedLFPIndicesIntra,index));
             statsResults.pLFP(index)=p;
             statsResults.hLFP(index)=h;
             statsResults.statsLFP(index) = stats;
@@ -480,8 +499,9 @@ end
 %% Rank sum test across channels
 if rankSumTest && ~isnan(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index))
 
-    for index = 1:size(base_fre1RCS.averagedBins,2)
-        [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index),base_fre1Intraop.averagedBins(indicesECOGintra,index));
+    % Bug #27 fix: Use base_fre1RCScollapse instead of undefined base_fre1RCS
+    for index = 1:size(base_fre1RCScollapse.averagedBins,2)
+        [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index),base_fre1Intraop_avg.averagedBins(indicesECOGintra,index));
         statsResults.pECOG(index)=p;
         statsResults.hECOG(index)=h;
         statsResults.statsECOG(index) = stats;
@@ -492,7 +512,7 @@ if rankSumTest && ~isnan(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index)
     figure
     line1 = stdshade(log10(base_fre1RCScollapse.normalizedPow(indicesECOGRCS,:)),0.5,'b');
     hold on
-    line2 = stdshade(log10(base_fre1Intraop.normalizedPow(indicesECOGintra,:)),0.5,'r');
+    line2 = stdshade(log10(base_fre1Intraop_avg.normalizedPow(indicesECOGintra,:)),0.5,'r');
     xlabel('Frequency (Hz)')
     ylabel('Log Percentage of Total Power')
     title([subj ' Comparison between normalized RCS and Intraoperative NeuroOmega data for ECoG Channels'])
@@ -592,9 +612,13 @@ for intraopIdx = 1:length(base_fre1Intraop.label)
     % Find matching RCS channel
     foundMatch = false;
     for rcsTrial = 1:length(base_fre1RCSall.normalizedPow)
+        % Bug #25 fix: Add empty session validation and check for cell array
         if isempty(base_fre1RCSall.normalizedPow{rcsTrial}), continue; end
+        if ~iscell(base_fre1RCSall.normalizedPow{rcsTrial}), continue; end
+        if isempty(base_fre1RCSall.chans{rcsTrial}), continue; end
 
-        rcsLabels = base_fre1RCSall.chans{rcsTrial}{:};
+        % Bug #22 fix: Wrap {:} expansion to properly concatenate iterations
+        rcsLabels = [base_fre1RCSall.chans{rcsTrial}{:}];
         rcsIdx = find(strcmp(rcsLabels, chanLabel));
 
         if ~isempty(rcsIdx)
@@ -653,10 +677,11 @@ if numMatchedPlot > 0
         % Add Bonferroni-corrected significance stars
         if permute_test && exist('statsResultsPerm','var')
             chanIdx = find(strcmp(statsResultsPerm.channelPairs, chanLabel));
-            if ~isempty(chanIdx)
+            % Bug #28 fix: Add bounds check for p-value matrix
+            if ~isempty(chanIdx) && chanIdx <= size(statsResultsPerm.p, 2)
                 ylims = ylim;
                 maxVal = ylims(2);
-                for freqBin = 1:size(freqEdgesPlot,1)
+                for freqBin = 1:min(size(freqEdgesPlot,1), size(statsResultsPerm.p, 1))
                     if statsResultsPerm.p(freqBin,chanIdx) < statsResultsPerm.bonferroniThreshold
                         scatter((freqEdgesPlot(freqBin,2)+freqEdgesPlot(freqBin,1))/2, maxVal-0.15, 100, 'k*');
                     end
@@ -665,7 +690,7 @@ if numMatchedPlot > 0
         end
 
         % make shaded regions of different frequency regions
-        freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125;250 350];
+        % Bug #48 fix: Remove duplicate freqEdgesPlot definition (already defined at line 653)
         ylims = ylim;
         minVal = ylims(1);
         maxVal = ylims(2);

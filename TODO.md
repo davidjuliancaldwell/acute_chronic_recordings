@@ -2,12 +2,15 @@
 
 ## Channel Mapping and Analysis Improvements
 
-### Pending Tasks
+### Completed Tasks
 
-1. **Double check channel mapping between RCS and intraoperative data**
-   - Verify `rcsOrder` assignments in `subjects_to_analyze.m` correctly specify L/R hemispheres
-   - Confirm channel labels match between intraop (LFPL2-0, ECOGL10-8, etc.) and RCS (after '+' stripping)
-   - Add diagnostic prints in `compare_intraop_rcs.m` to show matched channel pairs
+1. ✅ **Double check channel mapping between RCS and intraoperative data** (Completed: January 2026)
+   - ✅ Verified `rcsOrder` assignments in `subjects_to_analyze.m` correctly specify L/R hemispheres
+   - ✅ Confirmed channel labels match between intraop (LFPL2-0, ECOGL10-8, etc.) and RCS (after '+' stripping)
+   - ✅ Added diagnostic prints in `compare_intraop_rcs.m` showing matched channel pairs (lines 85, 195, 236, 591)
+   - **Evidence:** `verify_channel_matching.m` script validates channel matching, successful results for RCS02 (8 pairs) and RCS03 (4 pairs)
+
+### Pending Tasks
 
 2. **Research aperiodic slope analysis methods for different frequency bands**
    - Investigate FOOOF/specparam (Python library) - fits aperiodic component + peaks

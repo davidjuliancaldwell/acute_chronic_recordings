@@ -14,4 +14,5 @@ addpath(fullfile(parentPath,'fieldtrip'));
 addpath(fullfile(parentPath,'fieldtrip','external/brewermap'));
 ft_defaults;
 
-fprintf('Path set')
+% Bug #32 fix: Add newline to fprintf
+fprintf('Path set\n')

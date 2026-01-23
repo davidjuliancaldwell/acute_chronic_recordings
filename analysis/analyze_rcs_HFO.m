@@ -102,7 +102,8 @@ dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
         if isnumeric(timeDomainSettings.samplingRate(jj))
             timeMatrixRCS =  repmat([0:length(structCombinedDataTable{index}.DerivedTime)-1]/timeDomainSettings.samplingRate(1),4,1);
             dataRCS.fsample = timeDomainSettings.samplingRate(1);    % sampling frequency in Hz, single number
-        elseif ((isnumeric(tempSamplingRate)) & (tempSamplingRate >0))
+        % Bug #39 fix: Use && for logical AND (short-circuit evaluation)
+        elseif ((isnumeric(tempSamplingRate)) && (tempSamplingRate >0))
             timeMatrixRCS =  repmat([0:length(structCombinedDataTable{index}.DerivedTime)-1]/tempSamplingRate,4,1);
             dataRCS.fsample = tempSamplingRate;    % sampling frequency in Hz, single number
         end

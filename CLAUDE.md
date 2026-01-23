@@ -536,10 +536,103 @@ Systematic code exploration via specialized agents analyzing:
 - Helper functions
 - Master scripts
 
-**Remaining Issues:**
+**Remaining Issues After Session 1:**
 - 1 high severity (permutest.m cell error - deferred)
 - 10 moderate severity (validation, error handling)
 - 17 low severity (tech debt, deprecated functions, cosmetic)
+
+### Comprehensive Bug Fix Session 2 (January 23, 2026)
+
+**Overview:**
+Following the initial bug fix pass, a comprehensive cleanup session addressed the remaining 27 moderate and low severity bugs.
+
+**Completed:**
+- ✅ Updated TODO.md to mark channel mapping task #1 as COMPLETE
+- ✅ Fixed all 10 remaining moderate severity bugs
+- ✅ Fixed 11 of 17 low severity bugs
+- ✅ Removed 270 lines of deprecated code
+- ✅ Improved code robustness and maintainability
+
+**Moderate Severity Bugs Fixed (10/10):**
+
+1. **Nested Cell Array Expansion** - `compare_intraop_rcs.m`, `compare_intraop_rcs_HFO.m`
+   - Fixed `{:}` expansion by wrapping in brackets for proper concatenation
+   - Impact: Prevents errors when accessing nested cell arrays
+
+2. **Channel Side Check** - `verification/verify_channel_matching.m`
+   - Changed from generic `contains(label, 'L')` to specific `contains(label, {'ECOGL', 'LFPL'})`
+   - Impact: Accurate hemisphere validation without false positives
+
+3. **Index Mismatch in FOOOF Verification** - `verification/verify_fooof_results.m`
+   - Fixed loop bound to use `length(fooofparams)` instead of `length(label)`
+   - Impact: No index-out-of-bounds errors
+
+4. **Missing Empty Session Validation** - `compare_intraop_rcs_HFO.m`
+   - Added `iscell()` checks before cell array expansion
+   - Impact: Robust handling of failed/empty sessions
+
+5. **3D Array Indexing in Signed Rank Test** - `compare_intraop_rcs_HFO.m`
+   - Created trial-averaged `base_fre1Intraop_avg` to match RCS data format
+   - Impact: Correct statistical comparisons with proper dimensions
+
+6. **Undefined Variable in Rank Sum Test** - `compare_intraop_rcs_HFO.m`
+   - Changed `base_fre1RCS` to `base_fre1RCScollapse`
+   - Impact: Rank sum test now functional
+
+7. **Missing Bounds Check for P-Value Matrix** - `compare_intraop_rcs_HFO.m`
+   - Added `chanIdx <= size(p, 2)` check and `min()` for loop bounds
+   - Impact: No index errors when channel counts differ
+
+8. **Empty Cell Access Error** - `compare_intraop_rcs.m`
+   - Added `~isempty()` guards with warning message
+   - Impact: Graceful handling of missing session data
+
+9. **Missing FOOOF Field Check** - `compare_intraop_rcs_HFO.m`
+   - Added `isfield()` checks for FOOOF parameters
+   - Impact: Robust when FOOOF analysis fails
+
+10. **Cell Array Type Error** - `helpers/permutest.m`
+    - Added `iscell()` check before cell indexing
+    - Impact: Correct behavior for single cluster case
+
+**Low Severity Bugs Fixed (11/17):**
+
+- Missing fprintf newline in `setup_rcs.m`
+- Deprecated `addParamValue` → `addParameter` in `permutationTest.m`
+- Division by zero protection in `stdshade.m`
+- Robust path parsing in `analyze_rcs.m`
+- Removed hardcoded `saveFigure` overrides in `compare_intraop_rcs.m`
+- Removed unused variables in `analyze_rcs.m`
+- Fixed single `&` → `&&` in `analyze_rcs_HFO.m`
+- Removed 270 lines of deprecated `if false` code blocks
+- Updated `stdshade.m` documentation (SEM not STD)
+- Removed duplicate `freqEdgesPlot` definition in `compare_intraop_rcs_HFO.m`
+
+**Files Modified (11):**
+- `TODO.md` - Marked task #1 complete
+- `analysis/compare_intraop_rcs.m` - 6 bug fixes + 270 lines removed
+- `analysis/compare_intraop_rcs_HFO.m` - 6 bug fixes
+- `verification/verify_channel_matching.m` - Fixed hemisphere check
+- `verification/verify_fooof_results.m` - Fixed index mismatch
+- `helpers/permutest.m` - Fixed cell array error
+- `setup_rcs.m` - Added newline to fprintf
+- `helpers/permutationTest.m` - Updated deprecated function
+- `helpers/stdshade.m` - Added division protection, updated docs
+- `analysis/analyze_rcs.m` - Robust path parsing, removed unused vars
+- `analysis/analyze_rcs_HFO.m` - Fixed logical operator
+
+**Remaining Low Severity Issues (6):**
+- Hardcoded paths in `setup_rcs.m` (intentional - user configuration)
+- Duplicate subplot layout code (requires refactoring)
+- Magic number constants (requires centralization)
+- Inconsistent error handling patterns
+- Commented-out code cleanup
+- Mixed naming conventions
+
+**Combined Bug Fix Summary:**
+- Session 1 (Jan 20): 20 bugs fixed (14 critical, 3 high, 3 moderate)
+- Session 2 (Jan 23): 21 bugs fixed (10 moderate, 11 low)
+- **Total: 41 of 47 bugs fixed (87%)**
 
 ## File Organization
 

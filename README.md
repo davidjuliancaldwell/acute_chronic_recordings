@@ -408,6 +408,48 @@ subjResults.bonferroniThreshold
 
 ## Recent Updates
 
+### Comprehensive Bug Fix Pass - Session 2 (January 23, 2026)
+
+**Major Cleanup:** Addressed 21 remaining moderate and low severity bugs identified during systematic code analysis.
+
+**Bugs Fixed:**
+- **10 Moderate Severity**: Nested cell array expansion, index mismatches, missing validation checks, 3D array indexing issues, undefined variables, bounds checking
+- **11 Low Severity**: Deprecated functions, missing newlines, division by zero risks, hardcoded values, dead code removal (270 lines)
+
+**Key Improvements:**
+- ✅ Robust nested cell array handling across comparison scripts
+- ✅ Fixed channel side validation to avoid false positives
+- ✅ Corrected index mismatches in verification scripts
+- ✅ Added empty session and cell array type validation
+- ✅ Fixed 3D array indexing in HFO signed rank tests
+- ✅ Added bounds checking for p-value matrices
+- ✅ Updated deprecated `addParamValue` → `addParameter`
+- ✅ Removed 270 lines of unreachable deprecated code
+- ✅ Protected against division by zero in `stdshade.m`
+- ✅ Made path parsing robust to directory depth variations
+
+**Files Modified (11):**
+- `TODO.md`: Marked channel mapping task complete
+- `analysis/compare_intraop_rcs.m`: 6 fixes + removed deprecated blocks
+- `analysis/compare_intraop_rcs_HFO.m`: 6 fixes for HFO comparison
+- `verification/verify_channel_matching.m`: Fixed hemisphere validation
+- `verification/verify_fooof_results.m`: Fixed index mismatch
+- `helpers/permutest.m`: Fixed cell array type error
+- `helpers/permutationTest.m`: Updated deprecated function
+- `helpers/stdshade.m`: Added protection + updated docs
+- `analysis/analyze_rcs.m`: Robust path parsing
+- `analysis/analyze_rcs_HFO.m`: Fixed logical operator
+- `setup_rcs.m`: Added fprintf newline
+
+**Combined Bug Fix Summary:**
+- Session 1 (Jan 20, 2026): 20 bugs (14 critical, 3 high, 3 moderate)
+- Session 2 (Jan 23, 2026): 21 bugs (10 moderate, 11 low)
+- **Total: 41 of 47 bugs fixed (87%)**
+
+**Remaining Items (6):** Low priority tech debt including code standardization, refactoring duplicate patterns, and centralized configuration
+
+For detailed bug descriptions, see `BUG_FIXES_2026-01-20.md`.
+
 ### Channel Order Preservation Fix (January 21, 2026)
 
 **Issue:** MATLAB's `unique()` function by default alphabetically sorts channel labels, but the original RCS device channel order needed to be preserved to ensure labels matched their corresponding data rows.

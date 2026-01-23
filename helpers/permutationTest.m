@@ -93,10 +93,14 @@ addRequired(p, 'sample1', @isnumeric);
 addRequired(p, 'sample2', @isnumeric);
 addRequired(p, 'permutations', @isnumeric);
 
-addParamValue(p, 'sidedness', 'both', @(x) any(validatestring(x,{'both', 'smaller', 'larger'})));
-addParamValue(p, 'exact' , 0, @isnumeric);
-addParamValue(p, 'plotresult', 0, @isnumeric);
-addParamValue(p, 'showprogress', 0, @isnumeric);
+% Bug #33 fix: Replace deprecated addParamValue with addParameter
+addParameter(p, 'sidedness', 'both', @(x) any(validatestring(x,{'both', 'smaller', 'larger'})));
+% Bug #33 fix: Replace deprecated addParamValue with addParameter
+addParameter(p, 'exact' , 0, @isnumeric);
+% Bug #33 fix: Replace deprecated addParamValue with addParameter
+addParameter(p, 'plotresult', 0, @isnumeric);
+% Bug #33 fix: Replace deprecated addParamValue with addParameter
+addParameter(p, 'showprogress', 0, @isnumeric);
 
 parse(p, sample1, sample2, permutations, varargin{:})
 

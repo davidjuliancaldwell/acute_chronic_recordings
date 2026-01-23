@@ -77,12 +77,13 @@ for sessionIdx = 1:length(base_fre1RCSall.chans)
             if ~contains(label, {'ECOG', 'LFP'})
                 issues{end+1} = 'WARNING: Missing region prefix';
             end
-            % Check side consistency
+            % Bug #23 fix: Check side consistency using specific region prefixes
+            % Avoid false positives from 'L' in contact numbers
             expectedSide = rcsOrderSubj{sessionIdx};
-            if contains(label, 'L') && expectedSide == 'R'
-                issues{end+1} = sprintf('WARNING: Has ''L'' but rcsOrder says ''R''');
-            elseif contains(label, 'R') && expectedSide == 'L'
-                issues{end+1} = sprintf('WARNING: Has ''R'' but rcsOrder says ''L''');
+            if contains(label, {'ECOGL', 'LFPL'}) && expectedSide == 'R'
+                issues{end+1} = sprintf('WARNING: Has ''L'' prefix but rcsOrder says ''R''');
+            elseif contains(label, {'ECOGR', 'LFPR'}) && expectedSide == 'L'
+                issues{end+1} = sprintf('WARNING: Has ''R'' prefix but rcsOrder says ''L''');
             end
 
             if isempty(issues)

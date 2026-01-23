@@ -8,7 +8,17 @@ base_fre1RCSall = {};
 for jjj = 1:length(pathDataRcs)
 
     splitPath = strsplit(pathDataRcs{jjj},'/');
-    subject = splitPath{6}; % only for the defined paths on David's PC!
+    % Bug #36 fix: Make path parsing robust to directory depth
+    % Find first path component starting with 'RCS', or fallback to index 6
+    rcsIdx = find(contains(splitPath, 'RCS'), 1, 'first');
+    if ~isempty(rcsIdx)
+        subject = splitPath{rcsIdx};
+    elseif length(splitPath) >= 6
+        subject = splitPath{6};  % Fallback to hardcoded index
+    else
+        subject = 'Unknown';
+        warning('Could not determine subject from path: %s', pathDataRcs{jjj});
+    end
 
     processFlag = 2;
     shortGaps_systemTick = 0;
@@ -34,8 +44,9 @@ for jjj = 1:length(pathDataRcs)
         rcsBeginTime = eventLogTable.HostUnixTime(beginRCS(jjj));
         rcsEndTime = eventLogTable.HostUnixTime(endRCS(jjj));
 
-        [valueStart,indexStart] = min(abs(rcsBeginTime-combinedDataTable.DerivedTime));
-        [valueEnd,indexEnd] = min(abs(rcsEndTime-combinedDataTable.DerivedTime));
+        % Bug #38 fix: Use ~ to ignore unused outputs
+        [~,indexStart] = min(abs(rcsBeginTime-combinedDataTable.DerivedTime));
+        [~,indexEnd] = min(abs(rcsEndTime-combinedDataTable.DerivedTime));
 
         combinedDataTable = combinedDataTable(indexStart:indexEnd,:);
     end

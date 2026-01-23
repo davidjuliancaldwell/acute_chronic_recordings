@@ -55,8 +55,14 @@ if isfield(base_fre1Intraop, 'fooofparams')
 
     % Per-channel breakdown
     fprintf('\nPer-Channel Results:\n');
-    for chanIdx = 1:length(base_fre1Intraop.label)
-        label = base_fre1Intraop.label{chanIdx};
+    % Bug #24 fix: Use length(fooofparams) to match array sizes
+    for chanIdx = 1:length(base_fre1Intraop.fooofparams)
+        % Ensure label index exists
+        if chanIdx <= length(base_fre1Intraop.label)
+            label = base_fre1Intraop.label{chanIdx};
+        else
+            label = sprintf('Channel_%d', chanIdx);
+        end
         r2 = r2_vals(chanIdx);
         exp = exp_vals(chanIdx);
         off = off_vals(chanIdx);
