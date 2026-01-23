@@ -9,6 +9,7 @@ folderFigures = fullfile(oneDriveEnv,'/Research/RCS_project');
 subjects_to_analyze
 
 statsCell = {};
+statsCellPerm = {};
 
 %of note, the intraop order must be left then right side ECoG, then left
 %then right side LFP 
@@ -42,6 +43,9 @@ for subjNum = 1:length(subjsToAnalyze)
     if ~isempty(makeNan{subjNum})
         startIntraop = makeNan{subjNum}{1};
         endIntraop = makeNan{subjNum}{2};
+    else
+        startIntraop = [];
+        endIntraop = [];
     end
     % Note: rcsOrder is accessed directly in analyze_rcs as rcsOrder{subjNum}
 

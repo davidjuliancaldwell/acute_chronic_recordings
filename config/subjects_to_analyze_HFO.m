@@ -69,6 +69,22 @@ sidesToUseCell = {
     'b'    % RCS06 - bilateral
 };
 
+iterationInterest = {
+    []  % RCS06: no specific iteration selection
+};
+
+timeStampStart = {
+   []  % RCS06: no time window filtering
+};
+
+timeStampStop = {
+   []  % RCS06: no time window filtering
+};
+
+rerefCell = {
+  'bipolarSkipReref'  % RCS06: use bipolar skip rereferencing
+};
+
 % RCS02 - 1 day after
 % RCS03 - 13-Feb from 14-Jan 
 % RCS04 - 13-July from ??? 11-Oct was 4 month visit, so July 11 was 1 month

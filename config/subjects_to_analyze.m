@@ -34,7 +34,7 @@ rcsFiles = {
     %{fullfile(boxEnv,'/Patient In-Clinic Data/RCS05/At-Home Tests/24 Recording Session/RCS05L/Session1579801040075/DeviceNPC700414H')},
     %%not this one{fullfile(boxEnv,'/Patient In-Clinic Data/RCS05/4 months/Day 2/Videos/adaptive_silver_compjuter/RCS05L/Session1578591669419/DeviceNPC700414H')},
     %{fullfile(boxEnv,'/Patient In-Clinic Data/RCS06/At-Home Tests/24 Hour Recording Session/RCS06L/Session1580453054562/DeviceNPC700424H')},
-    {fullfile(boxEnv,'/Patient In-Clinic Data/RCS07/2 Month/RCS Data/RCS07L/Session1573242956929/DeviceNPC700419H'),fullfile(boxEnv,'/Users/davidcaldwell/Library/CloudStorage/Box-Box/Patient In-Clinic Data/RCS07/2 Month/RCS Data/RCS07R/Session1571419191067/DeviceNPC700403H')},
+    {fullfile(boxEnv,'/Patient In-Clinic Data/RCS07/2 Month/RCS Data/RCS07L/Session1573242956929/DeviceNPC700419H'),fullfile(boxEnv,'/Patient In-Clinic Data/RCS07/2 Month/RCS Data/RCS07R/Session1571419191067/DeviceNPC700403H')},
     %fullfile(boxEnv,'/Patient In-Clinic Data/RCS07/Adaptive Visit 1/RCS Data/RCS07L/Session1582324683533/DeviceNPC700419H'), % 1st right side file before this had strange power spectrum, may include if want evidence of time RCS doesnt do well? % 3rd one has samplingRate issue - maybe make check to see if SR is at another part of timeDOmainSettings and valid across all channels?
     fullfile(boxEnv,'/Patient In-Clinic Data/RCS08/At-Home Tests/3 Day Sprint (3rd Attempt)/RCS08L/Session1583373664473/DeviceNPC700444H'),
     fullfile(boxEnv,'/Patient In-Clinic Data/RCS09/Fast Adaptive Session 3.12.2021/RCS09R/Session1615585294490/DeviceNPC700449H');
@@ -44,27 +44,23 @@ rcsFiles = {
 %pathInt = fullfile(boxEnv,'/Patient In-Clinic Data/RCS02/v01_or_day/rcsData/Session1557272264386/DeviceNPC700404H';
 
 iterationInterest = {
-[],
-[2]
-
+    [],
+    [2]
 };
 
-timeStampStart ={
+timeStampStart = {
    [5,5],
-   [6],
- [],
+   [6]
 };
 
 timeStampStop = {
     [6,6],
-   [7],
-  [],
-    };
+    [7]
+};
 
 rerefCell = {
   'bipolarSkipReref',
-  'bipolarSkipReref',
-  []
+  'bipolarSkipReref'
 };
 
 sidesToUseCell = {

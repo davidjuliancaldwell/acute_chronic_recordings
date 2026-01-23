@@ -13,8 +13,6 @@ includeLFP = true;
 includeECOG = true;
 counter = 0;
 
-%run(fullfile(getenv('matlab_devel_dir'),'patient_config_files',subject, 'patient_config_file.m'))
-
 if includeLFP
     % lfp
     dataLFP = dataFile.lfp.contact;
@@ -188,6 +186,34 @@ end
 cfgIntraop = [];
 cfgIntraop.resamplefs = 250;     %frequency at which the data will be resampled (default = 256 Hz)
 [dataPreProcIntraop] = ft_resampledata(cfgIntraop, dataPreProcIntraop);
+
+%% Exclude dead channels (entirely NaN across recording)
+continuousData = dataPreProcIntraop.trial{1}; % Single continuous trial
+numChans = size(continuousData, 1);
+badChannels = false(numChans, 1);
+
+for chanIdx = 1:numChans
+    % Check if this channel is ALL NaN
+    if all(isnan(continuousData(chanIdx,:)))
+        badChannels(chanIdx) = true;
+    end
+end
+
+% Exclude bad channels if any found
+if any(badChannels)
+    badChanLabels = dataPreProcIntraop.label(badChannels);
+    goodChanLabels = dataPreProcIntraop.label(~badChannels);
+    fprintf('Intraop: Excluding %d dead channel(s): %s\n', sum(badChannels), strjoin(badChanLabels', ', '));
+
+    cfg = [];
+    cfg.channel = goodChanLabels;
+    dataPreProcIntraop = ft_selectdata(cfg, dataPreProcIntraop);
+
+    fprintf('Intraop: Continuing with %d good channel(s): %s\n', length(goodChanLabels), strjoin(goodChanLabels', ', '));
+else
+    fprintf('Intraop: All %d channels are valid (no dead channels detected)\n', numChans);
+end
+
 %% power spectrum
 cfg1Intraop = [];
 cfg1Intraop.overlap = 0.5;
@@ -197,12 +223,14 @@ dataPreProcOverlapIntraop = ft_redefinetrial(cfg1Intraop,dataPreProcIntraop);
 % exclude any trial with NaN's
 numTrials = length(dataPreProcOverlapIntraop.trial);
 keepTrial = ones(1,numTrials);
-% exclude nans
+% exclude nans - check ALL channels, not just first
 for iteration = 1:numTrials
-    tempData = dataPreProcOverlapIntraop.trial{iteration}(1,:); % first channel
-    indsNan = isnan(tempData);
-    if sum(indsNan)>0
-        keepTrial(iteration)=0;
+    trialData = dataPreProcOverlapIntraop.trial{iteration}; % ALL channels
+    % Keep trial if ANY channel is completely NaN-free
+    chanHasNoNaN = ~any(isnan(trialData), 2);  % Logical per channel
+    if ~any(chanHasNoNaN)
+        % ALL channels have NaN, exclude trial
+        keepTrial(iteration) = 0;
     end
 end
 

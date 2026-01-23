@@ -22,12 +22,27 @@ elseif strcmp(sidesToUse,'l')
 end
 
 
-% RC+S ECoG and DBS channels
+% RC+S ECoG and DBS channels - collapse and average for channel wise
+% statistics, permutation later
 base_fre1RCScollapse = {};
 
-base_fre1RCScollapse.averagedBins = cell2mat(base_fre1RCSall.averagedBins');
-base_fre1RCScollapse.label = [base_fre1RCSall.chans{:}];
-base_fre1RCScollapse.normalizedPow = cell2mat(base_fre1RCSall.normalizedPow');
+base_fre1RCScollapse.averagedBins = [squeeze(mean(cell2mat(base_fre1RCSall.averagedBins{1}),1))];
+base_fre1RCScollapse.label = [base_fre1RCSall.chans{1}{:}];
+base_fre1RCScollapse.normalizedPow = [squeeze(mean(cell2mat(base_fre1RCSall.normalizedPow{1}),1))];
+if isfield(base_fre1RCSall,'powspctrm')
+    base_fre1RCScollapse.powspctrm = [squeeze(mean(cell2mat(base_fre1RCSall.powspctrm{1}),1))];
+end
+
+if length(base_fre1RCSall.averagedBins) > 1
+    for rcsTrial = 2:length(base_fre1RCSall.averagedBins)
+        base_fre1RCScollapse.averagedBins = [base_fre1RCScollapse.averagedBins;squeeze(mean(cell2mat(base_fre1RCSall.averagedBins{rcsTrial}),1))];
+        base_fre1RCScollapse.label = [base_fre1RCScollapse.label base_fre1RCSall.chans{rcsTrial}{:}];
+        base_fre1RCScollapse.normalizedPow = [base_fre1RCScollapse.normalizedPow; squeeze(mean(cell2mat(base_fre1RCSall.normalizedPow{rcsTrial}),1))];
+        if isfield(base_fre1RCSall,'powspctrm')
+            base_fre1RCScollapse.powspctrm = [base_fre1RCScollapse.powspctrm; squeeze(mean(cell2mat(base_fre1RCSall.powspctrm{rcsTrial}),1))];
+        end
+    end
+end
 
 indicesECOGRCS = find(contains(base_fre1RCScollapse.label,'ECOG'));
 indicesLFPRCS = find(contains(base_fre1RCScollapse.label,'LFP'));
@@ -43,20 +58,37 @@ if permute_test
     matchedPairCount = 0;
 
     % Loop through all RCS sessions
-    for rcsTrial = 1:length(base_fre1RCSall.averagedBins)
-        samps_rcs_cell = base_fre1RCSall.averagedBins{rcsTrial};
-        rcsLabels = base_fre1RCSall.chans{rcsTrial};
+    numSessions = length(base_fre1RCSall.averagedBins);
+    fprintf('Found %d RCS sessions to process\n', numSessions);
+
+    for rcsTrial = 1:numSessions
+        % Skip empty or undefined sessions (failed to process)
+        if rcsTrial > length(base_fre1RCSall.averagedBins) || ...
+           isempty(base_fre1RCSall.averagedBins{rcsTrial}) || ...
+           rcsTrial > length(base_fre1RCSall.chans) || ...
+           isempty(base_fre1RCSall.chans{rcsTrial})
+            fprintf('  Session %d: Skipping (no data - processing likely failed)\n', rcsTrial);
+            continue;
+        end
+
+        fprintf('  Session %d: Processing...\n', rcsTrial);
+        samps_rcs_cell = cell2mat(base_fre1RCSall.averagedBins{rcsTrial});
+        rcsLabels = base_fre1RCSall.chans{rcsTrial}{:};
+        fprintf('    Found %d channels, data dimensions: [%s]\n', length(rcsLabels), num2str(size(samps_rcs_cell)));
 
         % For each RCS channel, find matching intraop channel by label
         for rcsIdx = 1:length(rcsLabels)
             rcsLabel = rcsLabels{rcsIdx};
+
+            % Find matching intraop channel (should have same label after our naming changes)
             matchIdx = find(strcmp(base_fre1Intraop.label, rcsLabel));
 
             if ~isempty(matchIdx)
+                % Found a match! Perform permutation test for each frequency bin
                 matchedPairCount = matchedPairCount + 1;
 
-                for freqBin = 1:size(base_fre1Intraop.averagedBins,2)
-                    samps_rcs = squeeze(samps_rcs_cell(:,freqBin));
+                for freqBin = 1:size(base_fre1Intraop.averagedBins,3)
+                    samps_rcs = squeeze(samps_rcs_cell(:,rcsIdx,freqBin));
                     samps_intra = squeeze(base_fre1Intraop.averagedBins(:,matchIdx,freqBin));
                     [p_val,observed_diff,effect_size] = permutationTest(samps_rcs,samps_intra, 10000);
 
@@ -232,72 +264,101 @@ if isfield(base_fre1Intraop, 'fooof_powspctrm') && isfield(base_fre1RCSall, 'foo
     % Frequency vector for FOOOF (reconstruct since not stored in RCS HFO)
     fooofFreq = 4:0.5:50;
 
-    % Determine subplot layout
-    numChans = length(base_fre1Intraop.label);
-    if numChans == 4
-        subplotRows = 2; subplotCols = 2;
-    elseif numChans == 8
-        subplotRows = 4; subplotCols = 2;
-    else
-        subplotRows = ceil(sqrt(numChans));
-        subplotCols = ceil(numChans/subplotRows);
-    end
+    % First, find all channels that exist in BOTH intraop and RCS
+    matchedChannels = {};
+    matchedIntraopIdx = [];
+    matchedRCSData = {};
 
-    figFooofSpectrum = figure('Name', [subj ' FOOOF Modeled Spectra HFO']);
-
-    for plotIdx = 1:numChans
-        subplot(subplotRows, subplotCols, plotIdx)
-        chanLabel = base_fre1Intraop.label{plotIdx};
-
-        % Get intraop FOOOF spectrum and normalize to 100%
-        intraopSpectrum = base_fre1Intraop.fooof_powspctrm(plotIdx, :);
-        intraopSum = nansum(intraopSpectrum);
-        intraopNorm = 100 * intraopSpectrum / intraopSum;
+    for intraopIdx = 1:length(base_fre1Intraop.label)
+        chanLabel = base_fre1Intraop.label{intraopIdx};
 
         % Find matching RCS channel
         foundMatch = false;
         for rcsTrial = 1:length(base_fre1RCSall.fooof_powspctrm)
+            if isempty(base_fre1RCSall.fooof_powspctrm{rcsTrial}), continue; end
+
             for iterIdx = 1:length(base_fre1RCSall.fooof_powspctrm{rcsTrial})
+                if isempty(base_fre1RCSall.chans{rcsTrial}) || isempty(base_fre1RCSall.chans{rcsTrial}{iterIdx})
+                    continue;
+                end
+
                 rcsLabels = base_fre1RCSall.chans{rcsTrial}{iterIdx};
                 rcsIdx = find(strcmp(rcsLabels, chanLabel));
 
                 if ~isempty(rcsIdx)
-                    rcsSpectrum = base_fre1RCSall.fooof_powspctrm{rcsTrial}{iterIdx}(rcsIdx, :);
-                    rcsSum = nansum(rcsSpectrum);
-                    rcsNorm = 100 * rcsSpectrum / rcsSum;
-
-                    % Plot log of normalized power (data is in LINEAR scale)
-                    line1 = plot(fooofFreq, log10(rcsNorm), 'b-', 'LineWidth', 1.5);
-                    hold on
-                    line2 = plot(fooofFreq, log10(intraopNorm), 'r-', 'LineWidth', 1.5);
-                    grid on
+                    % Found a match!
+                    matchedChannels{end+1} = chanLabel;
+                    matchedIntraopIdx(end+1) = intraopIdx;
+                    matchedRCSData{end+1} = struct('rcsTrial', rcsTrial, 'iterIdx', iterIdx, 'rcsIdx', rcsIdx);
                     foundMatch = true;
                     break;
                 end
             end
             if foundMatch, break; end
         end
-
-        if plotIdx == 1
-            xlabel('Frequency (Hz)')
-            ylabel('Log_{10} Normalized Power (%)')
-        end
-        title(chanLabel)
-        set(gca, 'fontsize', 12)
-        if plotIdx == numChans && foundMatch
-            legend([line1, line2], {'RCS', 'Intraop'}, 'Location', 'best');
-        end
     end
 
-    sgtitle([subj ' FOOOF Modeled Power Spectra (Normalized) - HFO'])
+    numMatchedChans = length(matchedChannels);
+    fprintf('FOOOF Plotting: Found %d matched channels\n', numMatchedChans);
 
-    if saveFigure
-        tempFig = gcf;
-        tempFig.Position = [300 300 1200 800];
-        exportgraphics(tempFig, fullfile(folderFigures, [subj '_FOOOF_spectra_HFO.png']), 'Resolution', 600)
-        exportgraphics(tempFig, fullfile(folderFigures, [subj '_FOOOF_spectra_HFO.eps']))
-    end
-end
+    if numMatchedChans == 0
+        warning('No matched channels for FOOOF plotting');
+    else
+        % Determine subplot layout based on MATCHED channels only
+        if numMatchedChans == 4
+            subplotRows = 2; subplotCols = 2;
+        elseif numMatchedChans == 8
+            subplotRows = 4; subplotCols = 2;
+        else
+            subplotRows = ceil(sqrt(numMatchedChans));
+            subplotCols = ceil(numMatchedChans/subplotRows);
+        end
+
+        figFooofSpectrum = figure('Name', [subj ' FOOOF Modeled Spectra HFO']);
+
+        for plotIdx = 1:numMatchedChans
+            subplot(subplotRows, subplotCols, plotIdx)
+            chanLabel = matchedChannels{plotIdx};
+            intraopIdx = matchedIntraopIdx(plotIdx);
+            rcsData = matchedRCSData{plotIdx};
+
+            % Get intraop FOOOF spectrum and normalize to 100%
+            intraopSpectrum = base_fre1Intraop.fooof_powspctrm(intraopIdx, :);
+            intraopSum = nansum(intraopSpectrum);
+            intraopNorm = 100 * intraopSpectrum / intraopSum;
+
+            % Get RCS FOOOF spectrum and normalize to 100%
+            rcsSpectrum = base_fre1RCSall.fooof_powspctrm{rcsData.rcsTrial}{rcsData.iterIdx}(rcsData.rcsIdx, :);
+            rcsSum = nansum(rcsSpectrum);
+            rcsNorm = 100 * rcsSpectrum / rcsSum;
+
+            % Plot log of normalized power (data is in LINEAR scale)
+            line1 = plot(fooofFreq, log10(rcsNorm), 'b-', 'LineWidth', 1.5);
+            hold on
+            line2 = plot(fooofFreq, log10(intraopNorm), 'r-', 'LineWidth', 1.5);
+            grid on
+
+            if plotIdx == 1
+                xlabel('Frequency (Hz)')
+                ylabel('Log_{10} Normalized Power (%)')
+            end
+            title(chanLabel)
+            set(gca, 'fontsize', 12)
+            if plotIdx == numMatchedChans
+                legend([line1, line2], {'RCS', 'Intraop'}, 'Location', 'best');
+            end
+        end
+
+        sgtitle([subj ' FOOOF Modeled Power Spectra (Normalized) - HFO'])
+
+        if saveFigure
+            tempFig = gcf;
+            tempFig.Position = [300 300 1200 800];
+            exportgraphics(tempFig, fullfile(folderFigures, [subj '_FOOOF_spectra_HFO.png']), 'Resolution', 600)
+            exportgraphics(tempFig, fullfile(folderFigures, [subj '_FOOOF_spectra_HFO.eps']))
+        end
+    end  % End of else block
+end  % End of FOOOF plotting if block
 
 %% FOOOF Exponent/Offset Connected Scatter Plots
 if exist('statsResultsFooof', 'var') && isfield(statsResultsFooof, 'matchedChannels')
@@ -357,22 +418,62 @@ if exist('statsResultsFooof', 'var') && isfield(statsResultsFooof, 'matchedChann
     end
 end
 
-%% Signed rank test for matching channels
+%% Signed rank test for matching channels (match by label first)
 if signedRankTest
-    % Signed rank test for ECoG channels (paired test)
-    for index = 1:size(base_fre1RCScollapse.averagedBins,2)
-        [p,h,stats] = signrank(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index),base_fre1Intraop.averagedBins(indicesECOGintra,index));
-        statsResults.pECOG(index)=p;
-        statsResults.hECOG(index)=h;
-        statsResults.statsECOG(index) = stats;
+    fprintf('Running signed rank test with label-matched channels...\n');
+
+    % Match ECoG channels by label
+    rcsECOGLabels = base_fre1RCScollapse.label(indicesECOGRCS);
+    matchedECOGIndicesRCS = [];
+    matchedECOGIndicesIntra = [];
+
+    for i = 1:length(rcsECOGLabels)
+        matchIdx = find(strcmp(base_fre1Intraop.label, rcsECOGLabels{i}));
+        if ~isempty(matchIdx)
+            matchedECOGIndicesRCS(end+1) = indicesECOGRCS(i);
+            matchedECOGIndicesIntra(end+1) = matchIdx;
+        end
     end
 
-    % Rank sum test for LFP channels
-    for index = 1:size(base_fre1RCScollapse.averagedBins,2)
-        [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesLFPRCS,index),base_fre1Intraop.averagedBins(indicesLFPintra,index));
-        statsResults.pLFP(index)=p;
-        statsResults.hLFP(index)=h;
-        statsResults.statsLFP(index) = stats;
+    % Match LFP channels by label
+    rcsLFPLabels = base_fre1RCScollapse.label(indicesLFPRCS);
+    matchedLFPIndicesRCS = [];
+    matchedLFPIndicesIntra = [];
+
+    for i = 1:length(rcsLFPLabels)
+        matchIdx = find(strcmp(base_fre1Intraop.label, rcsLFPLabels{i}));
+        if ~isempty(matchIdx)
+            matchedLFPIndicesRCS(end+1) = indicesLFPRCS(i);
+            matchedLFPIndicesIntra(end+1) = matchIdx;
+        end
+    end
+
+    fprintf('  Matched %d ECoG channels, %d LFP channels\n', length(matchedECOGIndicesRCS), length(matchedLFPIndicesRCS));
+
+    % Signed rank test for matched ECoG channels (paired test across channels)
+    if ~isempty(matchedECOGIndicesRCS)
+        for index = 1:size(base_fre1RCScollapse.averagedBins,2)
+            [p,h,stats] = signrank(base_fre1RCScollapse.averagedBins(matchedECOGIndicesRCS,index), ...
+                                    base_fre1Intraop.averagedBins(matchedECOGIndicesIntra,index));
+            statsResults.pECOG(index)=p;
+            statsResults.hECOG(index)=h;
+            statsResults.statsECOG(index) = stats;
+        end
+    else
+        warning('No matched ECoG channels for signed rank test');
+    end
+
+    % Signed rank test for matched LFP channels (paired test across channels)
+    if ~isempty(matchedLFPIndicesRCS)
+        for index = 1:size(base_fre1RCScollapse.averagedBins,2)
+            [p,h,stats] = signrank(base_fre1RCScollapse.averagedBins(matchedLFPIndicesRCS,index), ...
+                                    base_fre1Intraop.averagedBins(matchedLFPIndicesIntra,index));
+            statsResults.pLFP(index)=p;
+            statsResults.hLFP(index)=h;
+            statsResults.statsLFP(index) = stats;
+        end
+    else
+        warning('No matched LFP channels for signed rank test');
     end
 end
 
@@ -412,9 +513,11 @@ if rankSumTest && ~isnan(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index)
 
     %%
     % significance stars
-    for index=1:5
-        if statsResults.pECOG(index)<=0.05
-            scatter((freqEdgesPlot(index,2)+freqEdgesPlot(index,1))/2,maxVal-0.25,100,'k*'); %adds a marker
+    if exist('statsResults','var') && isfield(statsResults,'pECOG')
+        for index=1:min(length(statsResults.pECOG), size(freqEdgesPlot,1))
+            if statsResults.pECOG(index)<=0.05
+                scatter((freqEdgesPlot(index,2)+freqEdgesPlot(index,1))/2,maxVal-0.25,100,'k*'); %adds a marker
+            end
         end
     end
 
@@ -454,9 +557,11 @@ if rankSumTest && ~isnan(base_fre1RCScollapse.averagedBins(indicesLFPRCS,index))
 
     %%
     % significance stars
-    for index=1:5
-        if statsResults.pLFP(index)<=0.05
-            scatter((freqEdgesPlot(index,2)+freqEdgesPlot(index,1))/2,maxVal-0.25,100,'k*'); %adds a marker
+    if exist('statsResults','var') && isfield(statsResults,'pLFP')
+        for index=1:min(length(statsResults.pLFP), size(freqEdgesPlot,1))
+            if statsResults.pLFP(index)<=0.05
+                scatter((freqEdgesPlot(index,2)+freqEdgesPlot(index,1))/2,maxVal-0.25,100,'k*'); %adds a marker
+            end
         end
     end
 
@@ -476,131 +581,105 @@ if saveFigure
 end
 
 %% Individual channel plots with significance marking
-% Plot all matched channels in a loop
-if length(base_fre1Intraop.label) == 4
-    % 4-channel case (single hemisphere)
-    figure;
-    freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125;250 350];
+% First find all matched channels
+matchedChannelsPlot = {};
+matchedIntraopIdxPlot = [];
+matchedRCSDataPlot = {};
 
-    for plotIdx = 1:4
-        subplot(2,2,plotIdx)
+for intraopIdx = 1:length(base_fre1Intraop.label)
+    chanLabel = base_fre1Intraop.label{intraopIdx};
 
-        % Find matching RCS channel
-        chanLabel = base_fre1Intraop.label{plotIdx};
+    % Find matching RCS channel
+    foundMatch = false;
+    for rcsTrial = 1:length(base_fre1RCSall.normalizedPow)
+        if isempty(base_fre1RCSall.normalizedPow{rcsTrial}), continue; end
 
-        for rcsTrial = 1:length(base_fre1RCSall.normalizedPow)
-            rcsLabels = base_fre1RCSall.chans{rcsTrial}{:};
-            rcsIdx = find(strcmp(rcsLabels, chanLabel));
+        rcsLabels = base_fre1RCSall.chans{rcsTrial}{:};
+        rcsIdx = find(strcmp(rcsLabels, chanLabel));
 
-            if ~isempty(rcsIdx)
-                rcs_data_interest = base_fre1RCSall.normalizedPow{rcsTrial}{:};
-                line1 = stdshade(log10(squeeze(rcs_data_interest(:,rcsIdx,:))),0.5,'b');
-                hold on
-                line2 = stdshade(log10(squeeze(base_fre1Intraop.normalizedPow(:,plotIdx,:))),0.5,'r');
-
-                if plotIdx == 1
-                    xlabel('Frequency (Hz)')
-                    ylabel('Log Percentage of Total Power')
-                end
-                title([subj ' Intraop vs. RC+S ' chanLabel])
-
-                % Add Bonferroni-corrected significance stars
-                if permute_test && exist('statsResultsPerm','var')
-                    chanIdx = find(strcmp(statsResultsPerm.channelPairs, chanLabel));
-                    if ~isempty(chanIdx)
-                        ylims = ylim;
-                        maxVal = ylims(2);
-                        for freqBin = 1:size(freqEdgesPlot,1)
-                            if statsResultsPerm.p(freqBin,chanIdx) < statsResultsPerm.bonferroniThreshold
-                                scatter((freqEdgesPlot(freqBin,2)+freqEdgesPlot(freqBin,1))/2, maxVal-0.15, 100, 'k*');
-                            end
-                        end
-                    end
-                end
-
-                % make shaded regions of different frequency regions
-                freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125;250 350];
-                ylims = ylim;
-                minVal = ylims(1);
-                maxVal = ylims(2);
-                colormapPatch = brewermap(size(freqEdgesPlot,1),'PuBu');
-                for index = 1:size(freqEdgesPlot,1)
-
-                    xVals = [freqEdgesPlot(index,1) freqEdgesPlot(index,2) freqEdgesPlot(index,2) freqEdgesPlot(index,1)];
-                    yVals = [minVal minVal maxVal maxVal];
-                    patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
-                end
-
-                if plotIdx == 1
-                    legend([line1,line2],{'RC+S','Intraoperative NeuroOmega'});
-                end
-                set(gca,'fontsize',16)
-                break;
-            end
+        if ~isempty(rcsIdx)
+            matchedChannelsPlot{end+1} = chanLabel;
+            matchedIntraopIdxPlot(end+1) = intraopIdx;
+            matchedRCSDataPlot{end+1} = struct('rcsTrial', rcsTrial, 'rcsIdx', rcsIdx);
+            foundMatch = true;
+            break;
         end
     end
+end
 
-elseif length(base_fre1Intraop.label) == 8
-    % 8-channel case (bilateral)
+numMatchedPlot = length(matchedChannelsPlot);
+fprintf('Individual channel plots: Found %d matched channels\n', numMatchedPlot);
+
+if numMatchedPlot > 0
+    % Determine subplot layout based on matched channels
+    if numMatchedPlot == 1
+        subplotRows = 1; subplotCols = 1;
+    elseif numMatchedPlot == 2
+        subplotRows = 1; subplotCols = 2;
+    elseif numMatchedPlot <= 4
+        subplotRows = 2; subplotCols = 2;
+    elseif numMatchedPlot <= 8
+        subplotRows = 2; subplotCols = 4;
+    else
+        subplotRows = ceil(sqrt(numMatchedPlot));
+        subplotCols = ceil(numMatchedPlot/subplotRows);
+    end
+
     figure;
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125;250 350];
 
-    for plotIdx = 1:8
-        subplot(2,4,plotIdx)
+    for plotIdx = 1:numMatchedPlot
+        subplot(subplotRows, subplotCols, plotIdx)
 
-        % Find matching RCS channel
-        chanLabel = base_fre1Intraop.label{plotIdx};
+        chanLabel = matchedChannelsPlot{plotIdx};
+        intraopIdx = matchedIntraopIdxPlot(plotIdx);
+        rcsData = matchedRCSDataPlot{plotIdx};
 
-        for rcsTrial = 1:length(base_fre1RCSall.normalizedPow)
-            rcsLabels = base_fre1RCSall.chans{rcsTrial}{:};
-            rcsIdx = find(strcmp(rcsLabels, chanLabel));
+        % Use pre-matched RCS data directly
+        rcsTrial = rcsData.rcsTrial;
+        rcsIdx = rcsData.rcsIdx;
+        rcs_data_interest = base_fre1RCSall.normalizedPow{rcsTrial}{:};
 
-            if ~isempty(rcsIdx)
-                rcs_data_interest = base_fre1RCSall.normalizedPow{rcsTrial}{:};
-                line1 = stdshade(log10(squeeze(rcs_data_interest(:,rcsIdx,:))),0.5,'b');
-                hold on
-                line2 = stdshade(log10(squeeze(base_fre1Intraop.normalizedPow(:,plotIdx,:))),0.5,'r');
+        line1 = stdshade(log10(squeeze(rcs_data_interest(:,rcsIdx,:))),0.5,'b');
+        hold on
+        line2 = stdshade(log10(squeeze(base_fre1Intraop.normalizedPow(:,intraopIdx,:))),0.5,'r');
 
-                if plotIdx == 1
-                    xlabel('Frequency (Hz)')
-                    ylabel('Log Percentage of Total Power')
-                end
-                title([subj ' ' chanLabel])
+        if plotIdx == 1
+            xlabel('Frequency (Hz)')
+            ylabel('Log Percentage of Total Power')
+        end
+        title([subj ' Intraop vs. RC+S ' chanLabel])
 
-                % Add Bonferroni-corrected significance stars
-                if permute_test && exist('statsResultsPerm','var')
-                    chanIdx = find(strcmp(statsResultsPerm.channelPairs, chanLabel));
-                    if ~isempty(chanIdx)
-                        ylims = ylim;
-                        maxVal = ylims(2);
-                        for freqBin = 1:size(freqEdgesPlot,1)
-                            if statsResultsPerm.p(freqBin,chanIdx) < statsResultsPerm.bonferroniThreshold
-                                scatter((freqEdgesPlot(freqBin,2)+freqEdgesPlot(freqBin,1))/2, maxVal-0.15, 100, 'k*');
-                            end
-                        end
+        % Add Bonferroni-corrected significance stars
+        if permute_test && exist('statsResultsPerm','var')
+            chanIdx = find(strcmp(statsResultsPerm.channelPairs, chanLabel));
+            if ~isempty(chanIdx)
+                ylims = ylim;
+                maxVal = ylims(2);
+                for freqBin = 1:size(freqEdgesPlot,1)
+                    if statsResultsPerm.p(freqBin,chanIdx) < statsResultsPerm.bonferroniThreshold
+                        scatter((freqEdgesPlot(freqBin,2)+freqEdgesPlot(freqBin,1))/2, maxVal-0.15, 100, 'k*');
                     end
                 end
-
-                % make shaded regions of different frequency regions
-                freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125;250 350];
-                ylims = ylim;
-                minVal = ylims(1);
-                maxVal = ylims(2);
-                colormapPatch = brewermap(size(freqEdgesPlot,1),'PuBu');
-                for index = 1:size(freqEdgesPlot,1)
-
-                    xVals = [freqEdgesPlot(index,1) freqEdgesPlot(index,2) freqEdgesPlot(index,2) freqEdgesPlot(index,1)];
-                    yVals = [minVal minVal maxVal maxVal];
-                    patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
-                end
-
-                if plotIdx == 1
-                    legend([line1,line2],{'RC+S','Intraoperative NeuroOmega'});
-                end
-                set(gca,'fontsize',16)
-                break;
             end
         end
+
+        % make shaded regions of different frequency regions
+        freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125;250 350];
+        ylims = ylim;
+        minVal = ylims(1);
+        maxVal = ylims(2);
+        colormapPatch = brewermap(size(freqEdgesPlot,1),'PuBu');
+        for index = 1:size(freqEdgesPlot,1)
+            xVals = [freqEdgesPlot(index,1) freqEdgesPlot(index,2) freqEdgesPlot(index,2) freqEdgesPlot(index,1)];
+            yVals = [minVal minVal maxVal maxVal];
+            patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
+        end
+
+        if plotIdx == 1
+            legend([line1,line2],{'RC+S','Intraoperative NeuroOmega'});
+        end
+        set(gca,'fontsize',16)
     end
 end
 

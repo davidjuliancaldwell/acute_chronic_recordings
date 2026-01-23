@@ -13,18 +13,32 @@ for jjj = 1:length(pathDataRcs)
     processFlag = 2;
     shortGaps_systemTick = 0;
 
-    [unifiedDerivedTimes, timeDomainData, timeDomainData_onlyTimeVariables,...
-        timeDomain_timeVariableNames, AccelData, AccelData_onlyTimeVariables,...
-        Accel_timeVariableNames, PowerData, PowerData_onlyTimeVariables,...
-        Power_timeVariableNames, FFTData, FFTData_onlyTimeVariables,...
-        FFT_timeVariableNames, AdaptiveData, AdaptiveData_onlyTimeVariables, ...
-        Adaptive_timeVariableNames, timeDomainSettings, powerSettings, fftSettings, ...
-        eventLogTable, metaData, stimSettingsOut, stimMetaData, stimLogSettings,...
-        DetectorSettings, AdaptiveStimSettings, AdaptiveEmbeddedRuns_StimSettings] = ProcessRCS(pathDataRcs{jjj}, processFlag, shortGaps_systemTick);
+    try
+        fprintf('\n=== Processing RCS Session %d/%d ===\n', jjj, length(pathDataRcs));
+
+        [unifiedDerivedTimes, timeDomainData, timeDomainData_onlyTimeVariables,...
+            timeDomain_timeVariableNames, AccelData, AccelData_onlyTimeVariables,...
+            Accel_timeVariableNames, PowerData, PowerData_onlyTimeVariables,...
+            Power_timeVariableNames, FFTData, FFTData_onlyTimeVariables,...
+            FFT_timeVariableNames, AdaptiveData, AdaptiveData_onlyTimeVariables, ...
+            Adaptive_timeVariableNames, timeDomainSettings, powerSettings, fftSettings, ...
+            eventLogTable, metaData, stimSettingsOut, stimMetaData, stimLogSettings,...
+            DetectorSettings, AdaptiveStimSettings, AdaptiveEmbeddedRuns_StimSettings] = ProcessRCS(pathDataRcs{jjj}, processFlag, shortGaps_systemTick);
 
 dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
 
 [combinedDataTable] = createCombinedTable(dataStreams,unifiedDerivedTimes,metaData);
+
+    % if we have knowledge from event table use this to trim down data
+    if ~isempty(beginRCS)
+        rcsBeginTime = eventLogTable.HostUnixTime(beginRCS(jjj));
+        rcsEndTime = eventLogTable.HostUnixTime(endRCS(jjj));
+
+        [valueStart,indexStart] = min(abs(rcsBeginTime-combinedDataTable.DerivedTime));
+        [valueEnd,indexEnd] = min(abs(rcsEndTime-combinedDataTable.DerivedTime));
+
+        combinedDataTable = combinedDataTable(indexStart:indexEnd,:);
+    end
 
     %%
     if plotRCSfuncs
@@ -39,12 +53,20 @@ dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
     end
 
     %% break up combined data table into sub recorded chunks
-    iterations = unique(timeDomainSettings.recNum);
-    structCombinedDataTable = {};
-    chansStruct = {};
+    if isempty(iterationInterestSpecific)
+        iterations = unique(timeDomainSettings.recNum);
+        structCombinedDataTable = {};
+        chansStruct = {};
+        iterationsVec = 1:length(iterations);
+    else
+        iterationsVec = iterationInterestSpecific(jjj);
+        structCombinedDataTable = {};
+        chansStruct = {};
+
+    end
 
     index = 1;
-    for jj = iterations
+    for jj =  iterationsVec
 
     beginning = timeDomainSettings.timeStart(jj);
     [~,minIndexStart] = min(abs(beginning - combinedDataTable.DerivedTime));
@@ -92,7 +114,7 @@ dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
         % avoid throwing an error with the label step below
 
 
-        [labels,inds]= unique(chansStruct{index});
+        [labels,inds]= unique(chansStruct{index}, 'stable');
 
         % Add region prefix to channel labels to match intraop naming convention
         % Use rcsOrder{subjNum} to determine L/R side for this RCS session
@@ -116,9 +138,15 @@ dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
         labelsWithPrefix{labelIdx} = [prefix chanLabel];
     end
 
+        % Diagnostic: Check for NaN in raw data before trial creation
+        nanCount = sum(isnan(dataRCSCell{index}), 'all');
+        totalElements = numel(dataRCSCell{index});
+        fprintf('Session %d Iteration %d RAW DATA: %d NaN values out of %d total (%.1f%%)\n', ...
+            jjj, index, nanCount, totalElements, 100*nanCount/totalElements);
+
         if length(inds) == 4
 
-            dataRCS.label = labelsWithPrefix(inds);
+            dataRCS.label = labelsWithPrefix;
             dataRCS.trial = {[dataRCSCell{index}]};     % cell-array containing a data matrix for each
             dataRCS.time = {timeRCSCell{index}};       % cell-array containing a time axis for each
 
@@ -127,7 +155,7 @@ dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
             tempDataSub = tempData(inds,:);
             tempTime = timeRCSCell{index};
             tempTimeSub = tempTime(inds,:);
-            dataRCS.label=labelsWithPrefix(inds);
+            dataRCS.label=labelsWithPrefix;
             dataRCS.trial = {tempDataSub};
             dataRCS.time = {tempTimeSub};
 
@@ -150,6 +178,7 @@ dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
         cfgRCS = [];
         cfgRCS.resamplefs = 1000;     %frequency at which the data will be resampled (default = 256 Hz)
         [dataPreProcRCS] = ft_resampledata(cfgRCS, dataPreProcRCS);
+        fprintf('  After resampling: %d NaN values in trial 1\n', sum(isnan(dataPreProcRCS.trial{1}), 'all'));
     end
     %% divide trials
     % if divideTrials
@@ -164,25 +193,69 @@ dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
         dataPreProcRCS = ft_interpolatenan(cfgInterp, dataPreProcRCS);
     end
 
+    %% Exclude dead channels (entirely NaN across recording)
+    continuousData = dataPreProcRCS.trial{1}; % Single continuous trial
+    numChans = size(continuousData, 1);
+    badChannels = false(numChans, 1);
+
+    for chanIdx = 1:numChans
+        % Check if this channel is ALL NaN
+        if all(isnan(continuousData(chanIdx,:)))
+            badChannels(chanIdx) = true;
+        end
+    end
+
+    % Exclude bad channels if any found
+    if any(badChannels)
+        badChanLabels = dataPreProcRCS.label(badChannels);
+        goodChanLabels = dataPreProcRCS.label(~badChannels);
+        fprintf('  Excluding %d dead channel(s): %s\n', sum(badChannels), strjoin(badChanLabels', ', '));
+
+        cfg = [];
+        cfg.channel = goodChanLabels;
+        dataPreProcRCS = ft_selectdata(cfg, dataPreProcRCS);
+
+        fprintf('  Continuing with %d good channel(s): %s\n', length(goodChanLabels), strjoin(goodChanLabels', ', '));
+    else
+        fprintf('  All %d channels are valid (no dead channels detected)\n', numChans);
+    end
+
     %% power spectrum
     cfg1RCS = [];
     cfg1RCS.overlap = 0.5;
     cfg1RCS.length = 2;
     dataPreProcOverlapRCS = ft_redefinetrial(cfg1RCS,dataPreProcRCS);
 
+    % Diagnostic: Check trials after redefinition
+    numTrialsCreated = length(dataPreProcOverlapRCS.trial);
+    fprintf('  After ft_redefinetrial: %d trials created\n', numTrialsCreated);
+    if numTrialsCreated > 0
+        fprintf('  First trial: %d NaN values\n', sum(isnan(dataPreProcOverlapRCS.trial{1}), 'all'));
+    end
+
     % exclude any trial with NaN's
     numTrials = length(dataPreProcOverlapRCS.trial);
     keepTrial = ones(1,numTrials);
-    % exclude nans
+    % exclude nans - check ALL channels, not just first
     for iteration = 1:numTrials
-        tempData = dataPreProcOverlapRCS.trial{iteration}(1,:); % first channel
-        indsNan = isnan(tempData);
-        if sum(indsNan)>0
-            keepTrial(iteration)=0;
+        trialData = dataPreProcOverlapRCS.trial{iteration}; % ALL channels
+        % Keep trial if ANY channel is completely NaN-free
+        chanHasNoNaN = ~any(isnan(trialData), 2);  % Logical per channel
+        if ~any(chanHasNoNaN)
+            % ALL channels have NaN, exclude trial
+            keepTrial(iteration) = 0;
         end
     end
 
     keepTrial = logical(keepTrial);
+
+    % Diagnostic: Check how many trials are being kept
+    numKept = sum(keepTrial);
+    fprintf('RCS Session %d Iteration %d: %d total trials, %d kept, %d excluded\n', jjj, index, numTrials, numKept, numTrials-numKept);
+
+    if numKept == 0
+        error('All trials contain NaN values and were excluded. Check makeNan settings or time window.');
+    end
 
     cfgKeepChannels = [];
     cfgKeepChannels.trials = keepTrial;
@@ -193,26 +266,30 @@ dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
     cfg2RCS.channel = 'all';
     cfg2RCS.method= 'mtmfft';
     cfg2RCS.taper = 'hanning';
+    cfg2RCS.keeptrials='yes'; % put this to yes if want individual trials returned vs. average
     cfg2RCS.foi = [0.5:1:500];
     base_fre1RCS = ft_freqanalysis(cfg2RCS,dataPreProcOverlapRCS);
 
     % get mean power
-    base_fre1RCS.totalPower = sum(base_fre1RCS.powspctrm,2);
-    base_fre1RCS.normalizedPow = 100*base_fre1RCS.powspctrm./repmat(base_fre1RCS.totalPower,1,size(base_fre1RCS.powspctrm,2));
+    base_fre1RCS.totalPower = squeeze(sum(base_fre1RCS.powspctrm,3));
+    base_fre1RCS.normalizedPow = 100*base_fre1RCS.powspctrm./repmat(base_fre1RCS.totalPower,1,1,size(base_fre1RCS.powspctrm,3));
 
-        base_fre1RCSall.totalPower{jjj}{index} = sum(base_fre1RCS.powspctrm,2);
-        base_fre1RCSall.normalizedPow{jjj}{index} = 100*base_fre1RCS.powspctrm./repmat(base_fre1RCS.totalPower,1,size(base_fre1RCS.powspctrm,2));
-        base_fre1RCSall.chans{jjj}{index} = dataRCS.label;
+        base_fre1RCSall.powspctrm{jjj}{index}=base_fre1RCS.powspctrm;
+        base_fre1RCSall.totalPower{jjj}{index} = squeeze(sum(base_fre1RCS.powspctrm,3));
+        base_fre1RCSall.normalizedPow{jjj}{index} = 100*base_fre1RCS.powspctrm./repmat(base_fre1RCS.totalPower,1,1,size(base_fre1RCS.powspctrm,3));
+        base_fre1RCSall.chans{jjj}{index} = base_fre1RCS.label;  % Use labels AFTER channel exclusion
 
         % average across bins
         %freqEdges = [4 8;8 12; 13 20;20 30;50 200;13 30];
         freqEdges = [4 8;8 12; 13 20;20 30;50 125;250 350];
 
+        base_fre1RCS.averagedBins = zeros(size(base_fre1RCS.totalPower,1),size(base_fre1RCS.totalPower,2),size(freqEdges,1));
+
         %theta (4–8Hz),alpha(8–12Hz),lowbeta(13–20Hz), highbeta(20–30Hz),beta(13–30Hz),broadbandgamma(50–200Hz),
         for binIdx = 1:size(freqEdges,1)
             indsInterest = (base_fre1RCS.freq <= freqEdges(binIdx,2)) & (base_fre1RCS.freq > freqEdges(binIdx,1));
-            base_fre1RCS.averagedBins(:,binIdx) = sum(base_fre1RCS.normalizedPow(:,indsInterest),2);
-            base_fre1RCSall.averagedBins{jjj}{index}(:,binIdx) = sum(base_fre1RCS.normalizedPow(:,indsInterest),2);
+            base_fre1RCS.averagedBins(:,:,binIdx) = sum(base_fre1RCS.normalizedPow(:,:,indsInterest),3);
+            base_fre1RCSall.averagedBins{jjj}{index}(:,:,binIdx) = sum(base_fre1RCS.normalizedPow(:,:,indsInterest),3);
         end
 
         %% FOOOF Spectral Parameterization
@@ -233,6 +310,10 @@ dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
 
         % Store FOOOF parameters and aperiodic model spectrum
         base_fre1RCSall.fooofparams{jjj}{index} = base_fre1RCS_fooof.fooofparams;
+        % Store FOOOF frequency vector (same for all sessions/iterations)
+        if ~isfield(base_fre1RCSall, 'fooof_freq')
+            base_fre1RCSall.fooof_freq = base_fre1RCS_fooof.freq;
+        end
         % Try powspctrm first - it should contain the FOOOF model
         if isfield(base_fre1RCS_fooof, 'powspctrm')
             base_fre1RCSall.fooof_powspctrm{jjj}{index} = base_fre1RCS_fooof.powspctrm;
@@ -247,23 +328,32 @@ dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
 
         %% plot power
         figure
-        plot(base_fre1RCS.freq,log10(base_fre1RCS.powspctrm(1,:)))
+        % Average across trials, plot first channel
+        plot(base_fre1RCS.freq,log10(squeeze(mean(base_fre1RCS.powspctrm(:,1,:),1))))
         xlabel('Frequency (Hz)')
         ylabel('log Power')
         title([subject ' RCS PSD'])
 
         figure
-        plot(base_fre1RCS.freq,log10(base_fre1RCS.normalizedPow(1,:)))
+        % Average across trials, plot first channel
+        plot(base_fre1RCS.freq,log10(squeeze(mean(base_fre1RCS.normalizedPow(:,1,:),1))))
         xlabel('Frequency (Hz)')
         ylabel('Log Percent of Total Power')
         title([subject ' RCS PSD'])
 
         figure
-        plot(base_fre1RCS.averagedBins')
+        % Average across trials, plot first channel
+        plot(squeeze(mean(base_fre1RCS.averagedBins(:,1,:),1))')
         xlabel('Frequency bins')
         ylabel('Percent of Total Power Across Bin RCS')
 
         index = index + 1;
+    end
+
+    catch ME
+        warning('Failed to process RCS session %d: %s', jjj, ME.message);
+        fprintf('Skipping this session and continuing with next...\n');
+        continue;
     end
 end
 

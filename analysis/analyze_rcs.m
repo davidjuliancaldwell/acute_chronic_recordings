@@ -13,21 +13,24 @@ for jjj = 1:length(pathDataRcs)
     processFlag = 2;
     shortGaps_systemTick = 0;
 
-    [unifiedDerivedTimes, timeDomainData, timeDomainData_onlyTimeVariables,...
-        timeDomain_timeVariableNames, AccelData, AccelData_onlyTimeVariables,...
-        Accel_timeVariableNames, PowerData, PowerData_onlyTimeVariables,...
-        Power_timeVariableNames, FFTData, FFTData_onlyTimeVariables,...
-        FFT_timeVariableNames, AdaptiveData, AdaptiveData_onlyTimeVariables, ...
-        Adaptive_timeVariableNames, timeDomainSettings, powerSettings, fftSettings, ...
-        eventLogTable, metaData, stimSettingsOut, stimMetaData, stimLogSettings,...
-        DetectorSettings, AdaptiveStimSettings, AdaptiveEmbeddedRuns_StimSettings] = ProcessRCS(pathDataRcs{jjj}, processFlag, shortGaps_systemTick);
+    try
+        fprintf('\n=== Processing RCS Session %d/%d ===\n', jjj, length(pathDataRcs));
+
+        [unifiedDerivedTimes, timeDomainData, timeDomainData_onlyTimeVariables,...
+            timeDomain_timeVariableNames, AccelData, AccelData_onlyTimeVariables,...
+            Accel_timeVariableNames, PowerData, PowerData_onlyTimeVariables,...
+            Power_timeVariableNames, FFTData, FFTData_onlyTimeVariables,...
+            FFT_timeVariableNames, AdaptiveData, AdaptiveData_onlyTimeVariables, ...
+            Adaptive_timeVariableNames, timeDomainSettings, powerSettings, fftSettings, ...
+            eventLogTable, metaData, stimSettingsOut, stimMetaData, stimLogSettings,...
+            DetectorSettings, AdaptiveStimSettings, AdaptiveEmbeddedRuns_StimSettings] = ProcessRCS(pathDataRcs{jjj}, processFlag, shortGaps_systemTick);
 
     dataStreams = {timeDomainData, AccelData, PowerData, FFTData, AdaptiveData};
 
     [combinedDataTable] = createCombinedTable(dataStreams,unifiedDerivedTimes,metaData);
 
     % if we have knowledge from event table use this to trim down data
-    if ~isempty('beginRCS')
+    if ~isempty(beginRCS)
         rcsBeginTime = eventLogTable.HostUnixTime(beginRCS(jjj));
         rcsEndTime = eventLogTable.HostUnixTime(endRCS(jjj));
 
@@ -115,7 +118,7 @@ for jjj = 1:length(pathDataRcs)
         % avoid throwing an error with the label step below
 
 
-        [labels,inds]= unique(chansStruct{index});
+        [labels,inds]= unique(chansStruct{index}, 'stable');
 
         % Add region prefix to channel labels to match intraop naming convention
         % Use rcsOrder{subjNum} to determine L/R side for this RCS session
@@ -141,7 +144,7 @@ for jjj = 1:length(pathDataRcs)
 
         if length(inds) == 4
 
-            dataRCS.label = labelsWithPrefix(inds);
+            dataRCS.label = labelsWithPrefix;
             dataRCS.trial = {[dataRCSCell{index}]};     % cell-array containing a data matrix for each
             dataRCS.time = {timeRCSCell{index}};       % cell-array containing a time axis for each
 
@@ -150,7 +153,7 @@ for jjj = 1:length(pathDataRcs)
             tempDataSub = tempData(inds,:);
             tempTime = timeRCSCell{index};
             tempTimeSub = tempTime(inds,:);
-            dataRCS.label=labelsWithPrefix(inds);
+            dataRCS.label=labelsWithPrefix;
             dataRCS.trial = {tempDataSub};
             dataRCS.time = {tempTimeSub};
 
@@ -187,6 +190,33 @@ for jjj = 1:length(pathDataRcs)
             dataPreProcRCS = ft_interpolatenan(cfgInterp, dataPreProcRCS);
         end
 
+        %% Exclude dead channels (entirely NaN across recording)
+        continuousData = dataPreProcRCS.trial{1}; % Single continuous trial
+        numChans = size(continuousData, 1);
+        badChannels = false(numChans, 1);
+
+        for chanIdx = 1:numChans
+            % Check if this channel is ALL NaN
+            if all(isnan(continuousData(chanIdx,:)))
+                badChannels(chanIdx) = true;
+            end
+        end
+
+        % Exclude bad channels if any found
+        if any(badChannels)
+            badChanLabels = dataPreProcRCS.label(badChannels);
+            goodChanLabels = dataPreProcRCS.label(~badChannels);
+            fprintf('  Excluding %d dead channel(s): %s\n', sum(badChannels), strjoin(badChanLabels', ', '));
+
+            cfg = [];
+            cfg.channel = goodChanLabels;
+            dataPreProcRCS = ft_selectdata(cfg, dataPreProcRCS);
+
+            fprintf('  Continuing with %d good channel(s): %s\n', length(goodChanLabels), strjoin(goodChanLabels', ', '));
+        else
+            fprintf('  All %d channels are valid (no dead channels detected)\n', numChans);
+        end
+
         %% power spectrum
         cfg1RCS = [];
         cfg1RCS.overlap = 0.5;
@@ -196,12 +226,14 @@ for jjj = 1:length(pathDataRcs)
         % exclude any trial with NaN's
         numTrials = length(dataPreProcOverlapRCS.trial);
         keepTrial = ones(1,numTrials);
-        % exclude nans
+        % exclude nans - check ALL channels, not just first
         for iteration = 1:numTrials
-            tempData = dataPreProcOverlapRCS.trial{iteration}(1,:); % first channel
-            indsNan = isnan(tempData);
-            if sum(indsNan)>0
-                keepTrial(iteration)=0;
+            trialData = dataPreProcOverlapRCS.trial{iteration}; % ALL channels
+            % Keep trial if ANY channel is completely NaN-free
+            chanHasNoNaN = ~any(isnan(trialData), 2);  % Logical per channel
+            if ~any(chanHasNoNaN)
+                % ALL channels have NaN, exclude trial
+                keepTrial(iteration) = 0;
             end
         end
 
@@ -227,7 +259,7 @@ for jjj = 1:length(pathDataRcs)
         base_fre1RCSall.powspctrm{jjj}{index}=base_fre1RCS.powspctrm;
         base_fre1RCSall.totalPower{jjj}{index} = squeeze(sum(base_fre1RCS.powspctrm,3));
         base_fre1RCSall.normalizedPow{jjj}{index} = 100*base_fre1RCS.powspctrm./repmat(base_fre1RCS.totalPower,1,1,size(base_fre1RCS.powspctrm,3));
-        base_fre1RCSall.chans{jjj}{index} = dataRCS.label;
+        base_fre1RCSall.chans{jjj}{index} = base_fre1RCS.label;  % Use labels AFTER channel exclusion
 
         % average across bins
         %freqEdges = [4 8;8 12; 13 20;20 30;50 200;13 30];
@@ -260,6 +292,10 @@ for jjj = 1:length(pathDataRcs)
 
         % Store FOOOF parameters and aperiodic model spectrum
         base_fre1RCSall.fooofparams{jjj}{index} = base_fre1RCS_fooof.fooofparams;
+        % Store FOOOF frequency vector (same for all sessions/iterations)
+        if ~isfield(base_fre1RCSall, 'fooof_freq')
+            base_fre1RCSall.fooof_freq = base_fre1RCS_fooof.freq;
+        end
         % Try powspctrm first - it should contain the FOOOF model
         if isfield(base_fre1RCS_fooof, 'powspctrm')
             base_fre1RCSall.fooof_powspctrm{jjj}{index} = base_fre1RCS_fooof.powspctrm;
@@ -293,5 +329,10 @@ for jjj = 1:length(pathDataRcs)
         ylabel('Percent of Total Power Across Bin RCS')
     end
 
+    catch ME
+        warning('Failed to process RCS session %d: %s', jjj, ME.message);
+        fprintf('Skipping this session and continuing with next...\n');
+        continue;
+    end
 end
 

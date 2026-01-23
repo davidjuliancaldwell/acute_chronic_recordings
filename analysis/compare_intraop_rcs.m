@@ -54,19 +54,60 @@ base_fre1Intraop_avg.normalizedPow = squeeze(mean(base_fre1Intraop.normalizedPow
 % need to make sure that the order of the RCS being read in matches the
 % ECoG, with left then right being loaded in initially in setup RCS
 if signedRankTest
-    % rank sum test across channels
-    for index = 1:size(base_fre1RCScollapse.averagedBins,2)
-        [p,h,stats] = signrank(base_fre1RCScollapse.averagedBins(indicesECOGRCS,index),base_fre1Intraop_avg.averagedBins(indicesECOGintra,index));
-        statsResults.pECOG(index)=p;
-        statsResults.hECOG(index)=h;
-        statsResults.statsECOG(index) = stats;
+    fprintf('Running signed rank test with label-matched channels...\n');
+
+    % Match ECoG channels by label
+    rcsECOGLabels = base_fre1RCScollapse.label(indicesECOGRCS);
+    matchedECOGIndicesRCS = [];
+    matchedECOGIndicesIntra = [];
+
+    for i = 1:length(rcsECOGLabels)
+        matchIdx = find(strcmp(base_fre1Intraop_avg.label, rcsECOGLabels{i}));
+        if ~isempty(matchIdx)
+            matchedECOGIndicesRCS(end+1) = indicesECOGRCS(i);
+            matchedECOGIndicesIntra(end+1) = matchIdx;
+        end
     end
 
-    for index = 1:size(base_fre1RCScollapse.averagedBins,2)
-        [p,h,stats] = ranksum(base_fre1RCScollapse.averagedBins(indicesLFPRCS,index),base_fre1Intraop_avg.averagedBins(indicesLFPintra,index));
-        statsResults.pLFP(index)=p;
-        statsResults.hLFP(index)=h;
-        statsResults.statsLFP(index) = stats;
+    % Match LFP channels by label
+    rcsLFPLabels = base_fre1RCScollapse.label(indicesLFPRCS);
+    matchedLFPIndicesRCS = [];
+    matchedLFPIndicesIntra = [];
+
+    for i = 1:length(rcsLFPLabels)
+        matchIdx = find(strcmp(base_fre1Intraop_avg.label, rcsLFPLabels{i}));
+        if ~isempty(matchIdx)
+            matchedLFPIndicesRCS(end+1) = indicesLFPRCS(i);
+            matchedLFPIndicesIntra(end+1) = matchIdx;
+        end
+    end
+
+    fprintf('  Matched %d ECoG channels, %d LFP channels\n', length(matchedECOGIndicesRCS), length(matchedLFPIndicesRCS));
+
+    % Signed rank test for matched ECoG channels
+    if ~isempty(matchedECOGIndicesRCS)
+        for index = 1:size(base_fre1RCScollapse.averagedBins,2)
+            [p,h,stats] = signrank(base_fre1RCScollapse.averagedBins(matchedECOGIndicesRCS,index), ...
+                                    base_fre1Intraop_avg.averagedBins(matchedECOGIndicesIntra,index));
+            statsResults.pECOG(index)=p;
+            statsResults.hECOG(index)=h;
+            statsResults.statsECOG(index) = stats;
+        end
+    else
+        warning('No matched ECoG channels for signed rank test');
+    end
+
+    % Signed rank test for matched LFP channels
+    if ~isempty(matchedLFPIndicesRCS)
+        for index = 1:size(base_fre1RCScollapse.averagedBins,2)
+            [p,h,stats] = signrank(base_fre1RCScollapse.averagedBins(matchedLFPIndicesRCS,index), ...
+                                    base_fre1Intraop_avg.averagedBins(matchedLFPIndicesIntra,index));
+            statsResults.pLFP(index)=p;
+            statsResults.hLFP(index)=h;
+            statsResults.statsLFP(index) = stats;
+        end
+    else
+        warning('No matched LFP channels for signed rank test');
     end
 
 elseif rankSumTest
@@ -102,6 +143,13 @@ if permute_test
 
     % Loop through all RCS sessions
     for rcsTrial = 1:length(base_fre1RCSall.averagedBins)
+        % Skip empty sessions (failed to process)
+        if isempty(base_fre1RCSall.averagedBins{rcsTrial}) || ...
+           isempty(base_fre1RCSall.chans{rcsTrial})
+            fprintf('Skipping RCS session %d (no data - processing likely failed)\n', rcsTrial);
+            continue;
+        end
+
         samps_rcs_cell = cell2mat(base_fre1RCSall.averagedBins{rcsTrial});
         rcsLabels = base_fre1RCSall.chans{rcsTrial}{:};
 
@@ -457,7 +505,7 @@ for index = 1:size(freqEdgesPlot,1)
 end
 
 %
-if rankSumTest || signedRankTest
+if (rankSumTest || signedRankTest) && exist('statsResults','var')
     % significance stars
     for index=1:5
         if statsResults.pECOG(index)<=0.05
@@ -478,7 +526,7 @@ ylabel('Log Percentage of Total Power')
 title([subj ' Comparison between normalized RC+S and Intraoperative NeuroOmega data for LFP signals from DBS Channels'])
 
 %
-if rankSumTest || signedRankTest
+if (rankSumTest || signedRankTest) && exist('statsResults','var')
     % significance stars
     for index=1:5
         if statsResults.pLFP(index)<=0.05
@@ -512,8 +560,120 @@ if saveFigure
     exportgraphics(tempFig,fullfile(folderFigures,[subj '_compare_ECoG_LFP_' splitPath{10} '_' splitPath{11} '.eps']))
 end
 
-%% do 4 x 2 plot
-if length(base_fre1Intraop.label) ==4
+%% Individual channel plots with significance marking
+% First find all matched channels
+matchedChannelsPlot = {};
+matchedIntraopIdxPlot = [];
+matchedRCSDataPlot = {};
+
+for intraopIdx = 1:length(base_fre1Intraop.label)
+    chanLabel = base_fre1Intraop.label{intraopIdx};
+
+    % Find matching RCS channel
+    foundMatch = false;
+    for rcsTrial = 1:length(base_fre1RCSall.normalizedPow)
+        if isempty(base_fre1RCSall.normalizedPow{rcsTrial}), continue; end
+
+        rcsLabels = base_fre1RCSall.chans{rcsTrial}{:};
+        rcsIdx = find(strcmp(rcsLabels, chanLabel));
+
+        if ~isempty(rcsIdx)
+            matchedChannelsPlot{end+1} = chanLabel;
+            matchedIntraopIdxPlot(end+1) = intraopIdx;
+            matchedRCSDataPlot{end+1} = struct('rcsTrial', rcsTrial, 'rcsIdx', rcsIdx);
+            foundMatch = true;
+            break;
+        end
+    end
+end
+
+numMatchedPlot = length(matchedChannelsPlot);
+fprintf('Individual channel plots: Found %d matched channels\n', numMatchedPlot);
+
+if numMatchedPlot > 0
+    % Determine subplot layout based on matched channels
+    if numMatchedPlot == 1
+        subplotRows = 1; subplotCols = 1;
+    elseif numMatchedPlot == 2
+        subplotRows = 1; subplotCols = 2;
+    elseif numMatchedPlot <= 4
+        subplotRows = 2; subplotCols = 2;
+    elseif numMatchedPlot <= 8
+        subplotRows = 2; subplotCols = 4;
+    else
+        subplotRows = ceil(sqrt(numMatchedPlot));
+        subplotCols = ceil(numMatchedPlot/subplotRows);
+    end
+
+    fig3 = figure;
+    freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
+
+    for plotIdx = 1:numMatchedPlot
+        subplot(subplotRows, subplotCols, plotIdx)
+
+        chanLabel = matchedChannelsPlot{plotIdx};
+        intraopIdx = matchedIntraopIdxPlot(plotIdx);
+        rcsData = matchedRCSDataPlot{plotIdx};
+
+        % Use pre-matched RCS data directly
+        rcsTrial = rcsData.rcsTrial;
+        rcsIdx = rcsData.rcsIdx;
+        rcs_data_interest = base_fre1RCSall.normalizedPow{rcsTrial}{:};
+
+        line1 = stdshade(log10(squeeze(rcs_data_interest(:,rcsIdx,:))),0.5,'b');
+        hold on
+        line2 = stdshade(log10(squeeze(base_fre1Intraop.normalizedPow(:,intraopIdx,:))),0.5,'r');
+
+        if plotIdx == 1
+            xlabel('Frequency (Hz)')
+            ylabel('Log Percentage of Total Power')
+        end
+        title([subj ' Intraop vs. RC+S ' chanLabel])
+
+        % Get ylim values first for significance stars and patches
+        ylims = ylim;
+        minVal = ylims(1);
+        maxVal = ylims(2);
+
+        % Add Bonferroni-corrected significance stars
+        if permute_test && exist('statsResultsPerm','var')
+            chanIdx = find(strcmp(statsResultsPerm.channelPairs, chanLabel));
+            if ~isempty(chanIdx)
+                for freqBin = 1:size(freqEdgesPlot,1)
+                    if statsResultsPerm.p(freqBin,chanIdx) < statsResultsPerm.bonferroniThreshold
+                        scatter((freqEdgesPlot(freqBin,2)+freqEdgesPlot(freqBin,1))/2, maxVal-0.15, 100, 'k*');
+                    end
+                end
+            end
+        end
+
+        % make shaded regions of different frequency regions
+        colormapPatch = brewermap(size(freqEdgesPlot,1),'PuBu');
+        for index = 1:size(freqEdgesPlot,1)
+            xVals = [freqEdgesPlot(index,1) freqEdgesPlot(index,2) freqEdgesPlot(index,2) freqEdgesPlot(index,1)];
+            yVals = [minVal minVal maxVal maxVal];
+            patch(xVals,yVals,colormapPatch(index,:),'FaceAlpha',0.2)
+        end
+
+        if plotIdx == 1
+            legend([line1,line2],{'RC+S','Intraoperative NeuroOmega'});
+        end
+        set(gca,'fontsize',16)
+    end
+end
+
+%%
+saveFigure = 1;
+if saveFigure
+    tempFig = gcf;
+    tempFig.Position = [300 300 1800 768];
+    exportgraphics(tempFig,fullfile(folderFigures,[subj 'indChans_compare_ECoG_LFP_' splitPath{10} '_' splitPath{11} '.png']),'Resolution',600)
+    exportgraphics(tempFig,fullfile(folderFigures,[subj 'indChans_compare_ECoG_LFP_' splitPath{10} '_' splitPath{11} '.eps']))
+end
+
+%% OLD HARDCODED APPROACH - DEPRECATED (kept for reference)
+% do 4 x 2 plot
+if false && length(base_fre1Intraop.label) ==4
     fig3 = figure;
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
 
@@ -577,7 +737,7 @@ if length(base_fre1Intraop.label) ==4
     end
 
 
-elseif length(base_fre1Intraop.label) ==8
+elseif false && length(base_fre1Intraop.label) ==8
     fig3 = figure;
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
 
@@ -642,17 +802,8 @@ elseif length(base_fre1Intraop.label) ==8
 
 end
 
-%%
-saveFigure = 1;
-if saveFigure
-    tempFig = gcf;
-    tempFig.Position = [300 300 1800 768];
-    exportgraphics(tempFig,fullfile(folderFigures,[subj 'indChans_compare_ECoG_LFP_' splitPath{10} '_' splitPath{11} '.png']),'Resolution',600)
-    exportgraphics(tempFig,fullfile(folderFigures,[subj 'indChans_compare_ECoG_LFP_' splitPath{10} '_' splitPath{11} '.eps']))
-end
-
-%% do 2 x 2 plot (power spectrum - not normalized)
-if length(base_fre1Intraop.label) ==4
+%% OLD APPROACH - Non-normalized power plots (deprecated)
+if false && length(base_fre1Intraop.label) ==4
     fig4 = figure;
     freqEdgesPlot = [4 8;8 12; 13 20;20 30;50 125];
 
@@ -684,6 +835,11 @@ if length(base_fre1Intraop.label) ==4
                 title([subj ' Intraop vs. RC+S ' chanLabel])
                 set(gca,'fontsize',16)
 
+                % Get ylim values first for significance stars and patches
+                ylims = ylim;
+                minVal = ylims(1);
+                maxVal = ylims(2);
+
                                 % Add Bonferroni-corrected significance stars
                 if permute_test && exist('statsResultsPerm','var')
                     % Find which matched channel corresponds to this subplot
@@ -698,9 +854,6 @@ if length(base_fre1Intraop.label) ==4
                 end
 
                 % make shaded regions of different frequency regions
-                ylims = ylim;
-                minVal = ylims(1);
-                maxVal = ylims(2);
                 colormapPatch = brewermap(size(freqEdgesPlot,1),'PuBu');
                 for index = 1:size(freqEdgesPlot,1)
                     xVals = [freqEdgesPlot(index,1) freqEdgesPlot(index,2) freqEdgesPlot(index,2) freqEdgesPlot(index,1)];
@@ -749,6 +902,11 @@ elseif length(base_fre1Intraop.label) ==8
                 title([subj ' Intraop vs. RC+S ' chanLabel])
                 set(gca,'fontsize',16)
 
+                % Get ylim values first for significance stars and patches
+                ylims = ylim;
+                minVal = ylims(1);
+                maxVal = ylims(2);
+
                                 % Add Bonferroni-corrected significance stars
                 if permute_test && exist('statsResultsPerm','var')
                     % Find which matched channel corresponds to this subplot
@@ -763,9 +921,6 @@ elseif length(base_fre1Intraop.label) ==8
                 end
 
                 % make shaded regions of different frequency regions
-                ylims = ylim;
-                minVal = ylims(1);
-                maxVal = ylims(2);
                 colormapPatch = brewermap(size(freqEdgesPlot,1),'PuBu');
                 for index = 1:size(freqEdgesPlot,1)
                     xVals = [freqEdgesPlot(index,1) freqEdgesPlot(index,2) freqEdgesPlot(index,2) freqEdgesPlot(index,1)];

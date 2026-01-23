@@ -18,6 +18,7 @@ load(fullfile(boxEnv,'RCS_500_1000_hz_rest_data/for_David/Highsr_sessions_RCSpat
 subjects_to_analyze_HFO
 
 statsCell = {};
+statsCellPerm = {};
 
 for subjNum = 1:length(subjsToAnalyze)
 
@@ -36,20 +37,20 @@ for subjNum = 1:length(subjsToAnalyze)
     % permutation test (preferred method)
     permute_test = 1;
 
-    if bipolarSkipReref
-        rerefChoice = 'bipolarSkipReref';
-    elseif bipolarReref
-        rerefChoice = 'bipolarReref';
-    end
-
-
     pathDataIntraOp = intraOpFiles{subjNum};
     pathDataRcs = rcsFiles{subjNum};
     subj = subjsToAnalyze{subjNum};
+    beginRCS = timeStampStart{subjNum};
+    endRCS = timeStampStop{subjNum};
+    iterationInterestSpecific = iterationInterest{subjNum};
+    rerefChoice = rerefCell{subjNum};
     sidesToUse = sidesToUseCell{subjNum};
     if ~isempty(makeNan{subjNum})
         startIntraop = makeNan{subjNum}{1};
         endIntraop = makeNan{subjNum}{2};
+    else
+        startIntraop = [];
+        endIntraop = [];
     end
     % Note: rcsOrder is accessed directly in analyze_rcs_HFO as rcsOrder{subjNum}
 
