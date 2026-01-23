@@ -643,7 +643,7 @@ if numMatchedPlot > 0
     elseif numMatchedPlot <= 4
         subplotRows = 2; subplotCols = 2;
     elseif numMatchedPlot <= 8
-        subplotRows = 2; subplotCols = 4;
+        subplotRows = 4; subplotCols = 2;
     else
         subplotRows = ceil(sqrt(numMatchedPlot));
         subplotCols = ceil(numMatchedPlot/subplotRows);

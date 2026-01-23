@@ -57,6 +57,7 @@ indicesLFPRCS = find(contains(base_fre1RCScollapse.label, 'LFP'));
 % collapse across ECoG
 base_fre1Intraop_avg.averagedBins = squeeze(mean(base_fre1Intraop.averagedBins,1));
 base_fre1Intraop_avg.normalizedPow = squeeze(mean(base_fre1Intraop.normalizedPow,1));
+base_fre1Intraop_avg.label = base_fre1Intraop.label;
 %%
 % need to make sure that the order of the RCS being read in matches the
 % ECoG, with left then right being loaded in initially in setup RCS
@@ -608,7 +609,7 @@ if numMatchedPlot > 0
     elseif numMatchedPlot <= 4
         subplotRows = 2; subplotCols = 2;
     elseif numMatchedPlot <= 8
-        subplotRows = 2; subplotCols = 4;
+        subplotRows = 4; subplotCols = 2;
     else
         subplotRows = ceil(sqrt(numMatchedPlot));
         subplotCols = ceil(numMatchedPlot/subplotRows);
